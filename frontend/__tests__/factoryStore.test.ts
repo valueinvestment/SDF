@@ -8,6 +8,12 @@ beforeEach(() => {
     agentEvents: [],
     activeAlert: null,
     dispatchCommand: null,
+    placedEntities: [],
+    placementMode: null,
+    selectedEntityId: null,
+    machineDetails: {},
+    robotPaths: {},
+    componentFaults: {},
   })
 })
 
@@ -46,5 +52,39 @@ describe("addAgentEvent", () => {
       ts: 1000,
     })
     expect(useFactoryStore.getState().agentEvents).toHaveLength(1)
+  })
+})
+
+describe("placement", () => {
+  it("places an entity", () => {
+    useFactoryStore.getState().placeEntity("M1", "press", 5, 3)
+    const { placedEntities } = useFactoryStore.getState()
+    expect(placedEntities).toHaveLength(1)
+    expect(placedEntities[0].id).toBe("M1")
+  })
+
+  it("prevents duplicate placement", () => {
+    useFactoryStore.getState().placeEntity("M1", "press", 5, 3)
+    useFactoryStore.getState().placeEntity("M1", "press", 7, 7)
+    expect(useFactoryStore.getState().placedEntities).toHaveLength(1)
+  })
+
+  it("removes an entity", () => {
+    useFactoryStore.getState().placeEntity("M2", "cnc", 5, 5)
+    useFactoryStore.getState().removeEntity("M2")
+    expect(useFactoryStore.getState().placedEntities).toHaveLength(0)
+  })
+})
+
+describe("selection", () => {
+  it("sets selectedEntityId", () => {
+    useFactoryStore.getState().selectEntity("M3")
+    expect(useFactoryStore.getState().selectedEntityId).toBe("M3")
+  })
+
+  it("clears selection", () => {
+    useFactoryStore.getState().selectEntity("M3")
+    useFactoryStore.getState().selectEntity(null)
+    expect(useFactoryStore.getState().selectedEntityId).toBeNull()
   })
 })
