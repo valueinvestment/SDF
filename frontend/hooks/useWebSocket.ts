@@ -4,12 +4,12 @@ import { useFactoryStore } from "@/store/factoryStore"
 import type { WSMessage, RobotState } from "@/lib/types"
 import * as THREE from "three"
 import { getMachineMaterial } from "@/lib/threeHelpers"
-import type { RobotPositionRef, MachineStatusRef } from "@/hooks/useThreeScene"
+import type { RobotPositionRef, MachineGroupRef } from "@/hooks/useThreeScene"
 
 export function useWebSocket(
   url: string,
   robotPosRef?: React.MutableRefObject<RobotPositionRef>,
-  machineMeshesRef?: React.MutableRefObject<MachineStatusRef>
+  machineMeshesRef?: React.MutableRefObject<MachineGroupRef>
 ) {
   const queueRef = useRef<WSMessage[]>([])
   const rafRef = useRef<number>(0)
