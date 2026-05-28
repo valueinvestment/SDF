@@ -10,10 +10,11 @@ from agents.agent_b import run_agent_b
 from agents.agent_c import run_agent_c
 
 class AgentOrchestrator:
-    def __init__(self, bus: EventBus, gateway: WebSocketGateway, simulator: SensorSimulator):
+    def __init__(self, bus: EventBus, gateway: WebSocketGateway, simulator: SensorSimulator, detail_sim=None):
         self._bus = bus
         self._gateway = gateway
         self._simulator = simulator
+        self._detail_sim = detail_sim
         self._client = AsyncAnthropic(api_key=os.environ.get("ANTHROPIC_API_KEY", ""))
         self._running = False
 
@@ -36,6 +37,22 @@ class AgentOrchestrator:
             }
         })
 
+    def _map_components_to_parts(self, components: list[str], severity: str) -> dict:
+        COMPONENT_PART_MAP = {
+            "bearing": "motor",    "spindle": "motor",     "motor_surge": "motor",
+            "hydraulic": "actuator", "press_head": "actuator", "belt": "actuator",
+            "sensor": "sensor_unit",
+            "temperature": "body", "overheating": "body",
+        }
+        result = {}
+        for c in components:
+            part = COMPONENT_PART_MAP.get(c.lower(), "body")
+            result[part] = {
+                "severity": "critical" if severity == "high" else "warn",
+                "description": c,
+            }
+        return result
+
     async def _run_chain(self, machine_id: str):
         await self._gateway.broadcast({
             "type": "alert",
@@ -52,6 +69,19 @@ class AgentOrchestrator:
         report = await run_agent_a(machine_id, history, self._client)
         await self._emit("A", "complete" if not report.fallback else "error",
                          f"{report.classification} ({report.severity} severity, {report.confidence:.0%} confidence)")
+
+        if not report.fallback and report.affected_components:
+            faulted_parts = self._map_components_to_parts(report.affected_components, report.severity)
+            await self._gateway.broadcast({
+                "type": "component_fault",
+                "payload": {
+                    "machineId": machine_id,
+                    "faultedParts": faulted_parts,
+                }
+            })
+            if self._detail_sim:
+                for part in faulted_parts:
+                    self._detail_sim.inject_component_fault(machine_id, part)
 
         await self._emit("B", "running")
         robot_states = {rid: {"x": r.x, "y": r.y, "status": r.status}
