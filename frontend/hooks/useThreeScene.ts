@@ -2,7 +2,7 @@
 import { useEffect, useRef } from "react"
 import * as THREE from "three"
 import {
-  buildMachineMesh, buildRobotMesh,
+  buildMachineGroup, buildRobotMesh,
   MACHINE_POSITIONS, ROBOT_START_POSITIONS,
   disposeScene,
 } from "@/lib/threeHelpers"
@@ -12,7 +12,7 @@ export interface RobotPositionRef {
 }
 
 export interface MachineStatusRef {
-  [machineId: string]: THREE.Mesh
+  [machineId: string]: THREE.Group
 }
 
 export function useThreeScene(canvasRef: React.RefObject<HTMLCanvasElement>): {
@@ -47,10 +47,10 @@ export function useThreeScene(canvasRef: React.RefObject<HTMLCanvasElement>): {
     scene.add(grid)
 
     for (const [id, [x, z]] of Object.entries(MACHINE_POSITIONS)) {
-      const mesh = buildMachineMesh(id)
-      mesh.position.set(x, 0.6, z)
-      scene.add(mesh)
-      machineMeshesRef.current[id] = mesh
+      const group = buildMachineGroup(id, "cnc")
+      group.position.set(x, 0, z)
+      scene.add(group)
+      machineMeshesRef.current[id] = group
     }
 
     const robotMeshes: Record<string, THREE.Mesh> = {}

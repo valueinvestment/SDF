@@ -2,6 +2,7 @@
 import { useEffect, useRef } from "react"
 import { useFactoryStore } from "@/store/factoryStore"
 import type { WSMessage, RobotState } from "@/lib/types"
+import * as THREE from "three"
 import { getMachineMaterial } from "@/lib/threeHelpers"
 import type { RobotPositionRef, MachineStatusRef } from "@/hooks/useThreeScene"
 
@@ -34,9 +35,14 @@ export function useWebSocket(
           }
           if (machineMeshesRef) {
             for (const [id, data] of Object.entries(msg.payload.machines as Record<string, { status: string }>)) {
-              const mesh = machineMeshesRef.current[id]
-              if (mesh) {
-                mesh.material = getMachineMaterial(data.status)
+              const group = machineMeshesRef.current[id]
+              if (group) {
+                const mat = getMachineMaterial(data.status)
+                group.traverse((obj) => {
+                  if (obj instanceof THREE.Mesh) {
+                    obj.material = mat
+                  }
+                })
               }
             }
           }
