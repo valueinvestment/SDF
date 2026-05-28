@@ -13,7 +13,7 @@ const MACHINES = ["M1", "M2", "M3", "M4", "M5"]
 export default function Home() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const { robotPosRef, machineGroupsRef, updatePathLine, clearPathLine, updateComponentFault } = useThreeScene(canvasRef)
-  useWebSocket(WS_URL, robotPosRef, machineGroupsRef)
+  useWebSocket(WS_URL, robotPosRef, machineGroupsRef, updatePathLine, clearPathLine, updateComponentFault)
 
   return (
     <main className="bg-gray-950 text-white min-h-screen p-4 space-y-4">
