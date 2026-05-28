@@ -70,6 +70,7 @@ async def websocket_endpoint(ws: WebSocket):
     await gateway.connect(ws)
     try:
         while True:
-            await ws.receive_text()
+            raw = await ws.receive_text()
+            await gateway.handle_client_message(ws, raw)
     except WebSocketDisconnect:
         gateway.disconnect(ws)
