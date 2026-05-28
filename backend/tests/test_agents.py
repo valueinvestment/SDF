@@ -16,3 +16,16 @@ def test_parse_invalid_returns_fallback():
     result = parse_agent_a_response("I cannot determine the issue.")
     assert result.severity == "unknown"
     assert result.confidence == 0.0
+
+from agents.agent_b import parse_agent_b_response
+
+def test_parse_agent_b_valid():
+    raw = '{"robotId": "R2", "path": [[5,5],[7,5],[7,3]], "eta_seconds": 4.2, "reasoning": "nearest idle robot"}'
+    result = parse_agent_b_response(raw)
+    assert result.robotId == "R2"
+    assert len(result.path) == 3
+
+def test_parse_agent_b_fallback():
+    result = parse_agent_b_response("cannot determine")
+    assert result.robotId == "R1"
+    assert result.fallback is True
