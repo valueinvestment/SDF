@@ -1,9 +1,10 @@
 "use client"
 import { useEffect, useRef } from "react"
 import { useFactoryStore } from "@/store/factoryStore"
-import type { WSMessage } from "@/lib/types"
+import type { WSMessage, RobotState } from "@/lib/types"
+import type { RobotPositionRef } from "@/hooks/useThreeScene"
 
-export function useWebSocket(url: string) {
+export function useWebSocket(url: string, robotPosRef?: React.MutableRefObject<RobotPositionRef>) {
   const queueRef = useRef<WSMessage[]>([])
   const rafRef = useRef<number>(0)
 
@@ -21,6 +22,11 @@ export function useWebSocket(url: string) {
       const batch = queueRef.current.splice(0)
       for (const msg of batch) {
         if (msg.type === "sensor_update") {
+          if (robotPosRef) {
+            for (const [id, robot] of Object.entries(msg.payload.robots as Record<string, RobotState>)) {
+              robotPosRef.current[id] = { x: robot.x, y: robot.y }
+            }
+          }
           store.applySnapshot(msg.payload)
         } else if (msg.type === "agent_event") {
           store.addAgentEvent(msg.payload)

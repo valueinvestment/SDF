@@ -1,11 +1,11 @@
 "use client"
-import { useRef } from "react"
-import { useThreeScene } from "@/hooks/useThreeScene"
+import type { RefObject } from "react"
 
-export function FactoryCanvas() {
-  const canvasRef = useRef<HTMLCanvasElement>(null)
-  useThreeScene(canvasRef)
+interface Props {
+  canvasRef: RefObject<HTMLCanvasElement>
+}
 
+export function FactoryCanvas({ canvasRef }: Props) {
   return (
     <canvas
       ref={canvasRef}
