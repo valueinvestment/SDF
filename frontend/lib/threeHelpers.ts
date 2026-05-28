@@ -41,6 +41,19 @@ export const ROBOT_START_POSITIONS: Record<string, [number, number]> = {
   R1: [10, 10], R2: [5, 5], R3: [15, 5],
 }
 
+export const STATUS_COLORS: Record<string, number> = {
+  normal: 0x3b82f6,
+  degraded: 0xf59e0b,
+  fault: 0xef4444,
+}
+
+export function getMachineMaterial(status: string): THREE.MeshStandardMaterial {
+  const key = `machine_${status}`
+  return getMat(key, () =>
+    new THREE.MeshStandardMaterial({ color: STATUS_COLORS[status] ?? 0x6b7280 })
+  ) as THREE.MeshStandardMaterial
+}
+
 export function disposeScene(scene: THREE.Scene, renderer: THREE.WebGLRenderer) {
   scene.traverse((obj) => {
     if (obj instanceof THREE.Mesh) {

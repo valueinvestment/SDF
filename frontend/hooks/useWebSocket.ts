@@ -2,9 +2,14 @@
 import { useEffect, useRef } from "react"
 import { useFactoryStore } from "@/store/factoryStore"
 import type { WSMessage, RobotState } from "@/lib/types"
-import type { RobotPositionRef } from "@/hooks/useThreeScene"
+import { getMachineMaterial } from "@/lib/threeHelpers"
+import type { RobotPositionRef, MachineStatusRef } from "@/hooks/useThreeScene"
 
-export function useWebSocket(url: string, robotPosRef?: React.MutableRefObject<RobotPositionRef>) {
+export function useWebSocket(
+  url: string,
+  robotPosRef?: React.MutableRefObject<RobotPositionRef>,
+  machineMeshesRef?: React.MutableRefObject<MachineStatusRef>
+) {
   const queueRef = useRef<WSMessage[]>([])
   const rafRef = useRef<number>(0)
 
@@ -25,6 +30,14 @@ export function useWebSocket(url: string, robotPosRef?: React.MutableRefObject<R
           if (robotPosRef) {
             for (const [id, robot] of Object.entries(msg.payload.robots as Record<string, RobotState>)) {
               robotPosRef.current[id] = { x: robot.x, y: robot.y }
+            }
+          }
+          if (machineMeshesRef) {
+            for (const [id, data] of Object.entries(msg.payload.machines as Record<string, { status: string }>)) {
+              const mesh = machineMeshesRef.current[id]
+              if (mesh) {
+                mesh.material = getMachineMaterial(data.status)
+              }
             }
           }
           store.applySnapshot(msg.payload)

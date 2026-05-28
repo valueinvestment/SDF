@@ -11,8 +11,16 @@ export interface RobotPositionRef {
   [robotId: string]: { x: number; y: number }
 }
 
-export function useThreeScene(canvasRef: React.RefObject<HTMLCanvasElement>) {
+export interface MachineStatusRef {
+  [machineId: string]: THREE.Mesh
+}
+
+export function useThreeScene(canvasRef: React.RefObject<HTMLCanvasElement>): {
+  robotPosRef: React.MutableRefObject<RobotPositionRef>
+  machineMeshesRef: React.MutableRefObject<MachineStatusRef>
+} {
   const robotPosRef = useRef<RobotPositionRef>({})
+  const machineMeshesRef = useRef<MachineStatusRef>({})
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -42,6 +50,7 @@ export function useThreeScene(canvasRef: React.RefObject<HTMLCanvasElement>) {
       const mesh = buildMachineMesh(id)
       mesh.position.set(x, 0.6, z)
       scene.add(mesh)
+      machineMeshesRef.current[id] = mesh
     }
 
     const robotMeshes: Record<string, THREE.Mesh> = {}
@@ -73,5 +82,5 @@ export function useThreeScene(canvasRef: React.RefObject<HTMLCanvasElement>) {
     }
   }, [canvasRef])
 
-  return robotPosRef
+  return { robotPosRef, machineMeshesRef }
 }
