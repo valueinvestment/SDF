@@ -29,3 +29,24 @@ def test_parse_agent_b_fallback():
     result = parse_agent_b_response("cannot determine")
     assert result.robotId == "R1"
     assert result.fallback is True
+
+from agents.agent_c import parse_agent_c_response
+
+def test_parse_agent_c_valid():
+    raw = '''{
+      "recommendation": "immediate_repair",
+      "rice_scores": {
+        "immediate": {"reach": 8, "impact": 9, "confidence": 0.9, "effort": 3, "score": 24.0},
+        "scheduled": {"reach": 8, "impact": 6, "confidence": 0.8, "effort": 2, "score": 19.2},
+        "bypass":    {"reach": 4, "impact": 3, "confidence": 0.6, "effort": 1, "score": 7.2}
+      },
+      "rationale": "High severity fault requires immediate action."
+    }'''
+    result = parse_agent_c_response(raw)
+    assert result["recommendation"] == "immediate_repair"
+    assert "immediate" in result["rice_scores"]
+
+def test_parse_agent_c_fallback():
+    result = parse_agent_c_response("I cannot determine")
+    assert result["recommendation"] == "scheduled_maintenance"
+    assert result["fallback"] is True
