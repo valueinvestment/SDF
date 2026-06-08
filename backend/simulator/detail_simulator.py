@@ -12,6 +12,7 @@ class DetailSimulator:
             for mid in MACHINE_POSITIONS
         }
         self._faulted_parts: dict[str, set[str]] = {mid: set() for mid in MACHINE_POSITIONS}
+        self._robot_positions: dict[str, tuple[float, float]] = dict(ROBOT_POSITIONS)
 
     def inject_component_fault(self, machine_id: str, part: str) -> None:
         self._faulted_parts[machine_id].add(part)
@@ -30,6 +31,16 @@ class DetailSimulator:
         for mid in old - new:
             self._base_wear.pop(mid, None)
             self._faulted_parts.pop(mid, None)
+
+    def sync_robots(self, robots: dict[str, tuple[float, float]]) -> None:
+        """Add newly tracked robots, remove untracked ones."""
+        self._robot_positions = dict(robots)
+
+    def has_machine(self, machine_id: str) -> bool:
+        return machine_id in self._base_wear
+
+    def has_robot(self, robot_id: str) -> bool:
+        return robot_id in self._robot_positions
 
     def get_machine_detail(self, machine_id: str) -> dict:
         now = time.time()
@@ -79,7 +90,7 @@ class DetailSimulator:
         }
 
     def get_robot_path(self, robot_id: str) -> dict:
-        pos = ROBOT_POSITIONS.get(robot_id, (10.0, 10.0))
+        pos = self._robot_positions.get(robot_id, (10.0, 10.0))
         patrol = [
             [pos[0], pos[1]],
             [pos[0] + 3, pos[1]],

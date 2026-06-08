@@ -64,13 +64,14 @@ async def detail_loop():
     while True:
         subscribed = set(gateway._detail_subscriptions.values())
         for entity_id in subscribed:
-            if entity_id.startswith("M"):
+            category = gateway.get_entity_category(entity_id)
+            if category == "machine" and detail_sim.has_machine(entity_id):
                 detail = detail_sim.get_machine_detail(entity_id)
                 await gateway.broadcast_detail(entity_id, {
                     "type": "machine_detail",
                     "payload": detail,
                 })
-            elif entity_id.startswith("R"):
+            elif category == "robot" and detail_sim.has_robot(entity_id):
                 path = detail_sim.get_robot_path(entity_id)
                 await gateway.broadcast_detail(entity_id, {
                     "type": "robot_path",

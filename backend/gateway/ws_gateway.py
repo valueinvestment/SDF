@@ -7,6 +7,8 @@ class WebSocketGateway:
         self._detail_subscriptions: dict[WebSocket, str] = {}
         self._simulator = simulator
         self._detail_sim = detail_sim
+        # entity_id → "machine" | "robot"
+        self._entity_registry: dict[str, str] = {}
 
     async def connect(self, ws: WebSocket) -> None:
         await ws.accept()
@@ -44,10 +46,27 @@ class WebSocketGateway:
         self._simulator.sync_entities(machines, robots)
         if self._detail_sim:
             self._detail_sim.sync_machines(list(machines.keys()))
+            self._detail_sim.sync_robots(robots)
+        self._entity_registry = {
+            **{mid: "machine" for mid in machines},
+            **{rid: "robot" for rid in robots},
+        }
         print(
             f"[gateway] sync_entities machines={list(machines)} robots={list(robots)}",
             flush=True,
         )
+
+    def get_entity_category(self, entity_id: str) -> str | None:
+        """Return 'machine' or 'robot', or None if unknown."""
+        cat = self._entity_registry.get(entity_id)
+        if cat:
+            return cat
+        # Fallback for IDs not yet synced (legacy M/R prefix)
+        if entity_id.startswith("M"):
+            return "machine"
+        if entity_id.startswith("R"):
+            return "robot"
+        return None
 
     async def broadcast(self, message: dict) -> None:
         try:
