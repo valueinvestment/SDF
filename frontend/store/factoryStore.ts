@@ -97,7 +97,16 @@ export const useFactoryStore = create<FactoryStore>((set, get) => ({
   },
   setDispatchCommand: (cmd) => set({ dispatchCommand: cmd }),
 
-  placedEntities: [] as PlacedEntity[],
+  placedEntities: [
+    { id: "M1", type: "press",    x: 3,  z: 3,  label: "프레스" },
+    { id: "M2", type: "cnc",      x: 7,  z: 3,  label: "CNC" },
+    { id: "M3", type: "cnc",      x: 12, z: 3,  label: "CNC #2" },
+    { id: "M4", type: "conveyor", x: 3,  z: 12, label: "컨베이어" },
+    { id: "M5", type: "press",    x: 12, z: 12, label: "프레스 #2" },
+    { id: "R1", type: "robot",    x: 10, z: 10, label: "AMR #1" },
+    { id: "R2", type: "robot",    x: 5,  z: 5,  label: "AMR #2" },
+    { id: "R3", type: "robot",    x: 15, z: 5,  label: "AMR #3" },
+  ] as PlacedEntity[],
   placementMode: null,
   enterPlacementMode: (type, poolId, label) => set({ placementMode: { type, poolId, label } }),
   exitPlacementMode: () => set({ placementMode: null }),
