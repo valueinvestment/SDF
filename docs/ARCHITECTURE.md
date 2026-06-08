@@ -1,8 +1,8 @@
 # System Architecture
 # SDF Digital Twin Multi-Agent Simulator
 
-**Date:** 2026-05-27  
-**Version:** 1.0
+**Date:** 2026-06-08  
+**Version:** 1.3
 
 ---
 
@@ -29,25 +29,25 @@ Two independently deployed services communicate over a single persistent WebSock
 │                    useWebSocket hook                    │
 │                    (RAF drain queue)                    │
 └───────────────────────────┬─────────────────────────────┘
-                            │ WebSocket (wss://)
-                            │ ~10Hz sensor stream
-                            │ sparse agent events
+                            │ WebSocket (wss://) — bidirectional
+                            │ backend→frontend: ~10Hz sensor stream, agent events
+                            │ frontend→backend: sync_entities on connect / entity change
 ┌───────────────────────────┴─────────────────────────────┐
 │                     BACKEND (Railway)                   │
 │  FastAPI + Python + asyncio                             │
 │                                                         │
 │  ┌──────────────────────────────────────────────────┐   │
 │  │  SensorSimulator (asyncio task, 10Hz)            │   │
-│  │  - 5 machines: vibration, temp, current          │   │
-│  │  - 3 robots: x, y, heading, status               │   │
-│  │  - fault injection every 60–120s                 │   │
+│  │  - dynamic entity list (synced from frontend)    │   │
+│  │  - default: 5 machines + 3 robots                │   │
+│  │  - fault injection picks from live machine list  │   │
 │  └─────────────────────┬────────────────────────────┘   │
 │                        │                                │
 │                   EventBus (asyncio.Queue)              │
 │                  /              \                       │
 │  ┌──────────────┘                └────────────────┐     │
 │  │  WebSocketGateway              AgentOrchestrator│     │
-│  │  broadcast to all clients      (on ANOMALY)     │     │
+│  │  + entity registry (id→category)  (on ANOMALY)  │     │
 │  └──────────────────────         └────────┬────────┘     │
 │                                           │             │
 │                                  Agent A → B → C        │
@@ -102,10 +102,42 @@ Generates deterministic-but-randomized sensor data. Key behaviors:
 
 - **Normal range**: vibration 20–80 Hz, temperature 40–90°C, current 5–30A
 - **Fault range**: vibration 120–200 Hz, temperature 110–150°C, current 40–60A
-- **Fault injection**: one machine at a time, every 60–120s, lasting 30s
-- **Robot positions**: static in MVP (positions don't change until Agent B dispatches)
+- **Fault injection**: one machine at a time, every 60–120s, lasting 30s, picks from live machine list
+- **Robot positions**: static per entity (updated only when Agent B dispatches)
+- **Dynamic entity list**: `sync_entities(machines, robots)` reconciles the simulator's internal state with the frontend's placed entity list — new entities start generating data immediately on the next tick, removed entities are silently dropped
 
-### 2.4 AgentOrchestrator
+```python
+# Called by WebSocketGateway when frontend sends sync_entities
+simulator.sync_entities(
+    machines={"press-1234": (5.0, 8.0), "M1": (3.0, 3.0), ...},
+    robots={"robot-5678": (10.0, 10.0), "R1": (10.0, 10.0), ...},
+)
+```
+
+### 2.4 DetailSimulator
+
+Generates 2Hz machine wear/thermal and robot path detail, streamed only to clients subscribed to a specific entity (`subscribe_detail` / `unsubscribe_detail`). Key behaviors:
+
+- **Machine detail**: per-component wear bars, thermal grid, operation rate
+- **Robot path**: current position + patrol waypoints derived from entity position
+- **Dynamic machines**: `sync_machines(machine_ids)` adds new entries to the wear model, removes departed ones
+- **Dynamic robots**: `sync_robots(robots)` updates the internal position map used by `get_robot_path()`
+
+### 2.5 WebSocketGateway
+
+Manages WebSocket connections and routes inbound client messages.
+
+**Inbound message handlers:**
+
+| Message type | Action |
+|---|---|
+| `subscribe_detail` | Start streaming detail data for `entityId` to this client |
+| `unsubscribe_detail` | Stop streaming detail data to this client |
+| `sync_entities` | Reconcile simulator + detail simulator state; update entity registry |
+
+**Entity registry** (`_entity_registry: dict[str, str]`) — maintained on each `sync_entities` call. Maps `entity_id → "machine" | "robot"`. Used by `detail_loop` via `get_entity_category(entity_id)` instead of fragile ID-prefix matching (`startswith("M")`), so dynamic IDs like `press-1730000000000` route correctly.
+
+### 2.6 AgentOrchestrator
 
 Runs `agent_a → agent_b → agent_c` as a non-blocking `asyncio.create_task()`. The simulation loop and WebSocket broadcast continue at full speed during agent chain execution.
 
@@ -119,21 +151,22 @@ Chain execution emits WebSocket messages at each step:
 7. `agent_event {C, running}`
 8. `agent_event {C, complete, summary}` → RICE report visible
 
-### 2.5 File Structure
+### 2.7 File Structure
 
 ```
 backend/
-├── main.py                    # FastAPI app, lifespan wiring
-├── requirements.txt
+├── main.py                    # FastAPI app, lifespan wiring, simulation/detail/broadcast loops
+├── pyproject.toml             # uv-managed dependencies
 ├── .env                       # ANTHROPIC_API_KEY (not committed)
 ├── gateway/
 │   ├── event_bus.py           # asyncio.Queue pub/sub
-│   └── ws_gateway.py          # WebSocket connection manager
+│   └── ws_gateway.py          # WebSocket manager + entity registry + sync_entities handler
 ├── simulator/
 │   ├── models.py              # Pydantic: MachineState, RobotState, SensorSnapshot
-│   └── sensor_simulator.py   # 10Hz tick, fault injection
+│   ├── sensor_simulator.py    # 10Hz tick, dynamic entity list, fault injection
+│   └── detail_simulator.py    # 2Hz machine wear/thermal + robot path, dynamic sync
 ├── agents/
-│   ├── orchestrator.py        # Chain coordinator
+│   ├── orchestrator.py        # Chain coordinator (guards against removed machines)
 │   ├── agent_a.py             # Diagnostic (Claude API)
 │   ├── agent_b.py             # Routing (Claude API)
 │   └── agent_c.py             # RICE Decision (Claude API)
@@ -185,19 +218,47 @@ requestAnimationFrame drain()
               └── store.setActiveAlert()                ← AlertBanner
 ```
 
-### 3.3 Zustand Store
+### 3.3 Entity Placement System
+
+Users can add machines and robots to the 3D canvas via a modal. The system enforces a limit of **5 entities per type** (press / cnc / conveyor / robot).
+
+**Flow:**
+1. User clicks "+ 추가" in the Palette sidebar → `AddEntityModal` opens
+2. Modal shows 4 type cards (press / cnc / conveyor / robot) each with a `count / 5` badge
+3. Clicking a card → modal closes → `enterPlacementMode(type, id, label)` in the store
+4. User clicks the 3D canvas floor → `placeEntity()` adds the entity to `placedEntities`
+5. `useWebSocket` drain loop detects the change and sends `sync_entities` to the backend
+
+**ID generation:** `${type}-${Date.now()}` (e.g., `press-1749375234123`). Default entities retain their legacy IDs (`M1`–`M5`, `R1`–`R3`).
+
+**Limit enforcement:** `placedEntities.filter(e => e.type === type).length >= 5` — computed at render time, no separate counter state.
+
+**Detail panel routing:** `page.tsx` derives `isMachineSelected` / `isRobotSelected` from `placedEntities.find(e => e.id === selectedId)?.type` — never from ID prefix, so dynamic IDs route correctly.
+
+### 3.4 Zustand Store
 
 ```typescript
 interface FactoryStore {
-  machines: Record<MachineId, MachineState>      // includes .history ring buffer
-  robots: Record<RobotId, RobotState>            // status only, not position
-  agentEvents: AgentEvent[]                      // append-only, last 9 shown in UI
+  // Sensor state (from backend)
+  machines: Record<string, MachineState>         // includes .history ring buffer
+  robots: Record<string, RobotState>             // status only, not position
+  agentEvents: AgentEvent[]
   activeAlert: Alert | null
   dispatchCommand: DispatchCommand | null
+
+  // Entity placement (source of truth for canvas layout)
+  placedEntities: PlacedEntity[]                 // default: M1–M5 + R1–R3
+  placementMode: { type, poolId, label } | null  // non-null while awaiting canvas click
+  selectedEntityId: string | null
+
+  // Detail data (streamed at 2Hz when entity selected)
+  machineDetails: Record<string, MachineDetail>
+  robotPaths: Record<string, RobotPathDetail>
+  componentFaults: Record<string, ComponentFaultMap>
 }
 ```
 
-`MachineState.history` is a `[ts, vibration][]` ring buffer capped at 300 points (30 seconds at 10Hz). Only `vibration` is charted; `temperature` and `current` are available for future expansion.
+`MachineState.history` is a `[ts, vibration, temperature, current][]` ring buffer capped at 300 points (30 seconds at 10Hz).
 
 ### 3.4 Three.js Memory Management
 
@@ -221,17 +282,24 @@ matCache: Map<"machine_normal" | "machine_degraded" | "machine_fault" | "robot",
 frontend/
 ├── app/
 │   ├── layout.tsx             # Root layout, Tailwind
-│   └── page.tsx               # Layout shell, owns canvasRef and all hooks
+│   └── page.tsx               # Layout shell; derives panel routing from entity type (not ID prefix)
 ├── components/
 │   ├── FactoryCanvas.tsx      # Renders <canvas>, receives canvasRef as prop
-│   ├── SensorChart.tsx        # ECharts line chart, one per machine
+│   ├── Palette.tsx            # Sidebar: dynamic entity list from placedEntities + "+ 추가" button
+│   ├── AddEntityModal.tsx     # Type-picker modal (2×2 grid, 5-per-type limit)
+│   ├── MachineDetailPanel.tsx # Wear bars + thermal heatmap (ECharts)
+│   ├── RobotDetailPanel.tsx   # Robot path + patrol waypoints
+│   ├── SensorChart.tsx        # ECharts line chart, one per placed machine
 │   ├── AgentPanel.tsx         # Agent chain status + RICE report display
-│   └── AlertBanner.tsx        # Alert overlay
+│   ├── AlertBanner.tsx        # Alert overlay
+│   ├── AlertHistory.tsx       # Past alert log
+│   └── ToastContainer.tsx     # Toast notification stack
 ├── hooks/
 │   ├── useWebSocket.ts        # WS connection, message queue, RAF drain
+│   │                          # sends sync_entities on open + on placedEntities change
 │   └── useThreeScene.ts       # Three.js init, animate loop, dispose
 ├── store/
-│   └── factoryStore.ts        # Zustand store + applySnapshot reducer
+│   └── factoryStore.ts        # Zustand store: sensor state + placement system + detail data
 ├── lib/
 │   ├── types.ts               # Shared TypeScript interfaces (mirrors backend models)
 │   └── threeHelpers.ts        # Geometry cache, material cache, disposeScene
@@ -243,14 +311,30 @@ frontend/
 
 ## 4. Data Contracts
 
-All WebSocket messages use this envelope:
+The WebSocket connection is bidirectional. Messages are JSON with a `type` + `payload` envelope.
 
+**Backend → Frontend:**
 ```typescript
 type WSMessage =
-  | { type: "sensor_update";  payload: SensorSnapshot }
-  | { type: "robot_dispatch"; payload: DispatchCommand }
-  | { type: "agent_event";    payload: AgentEvent }
-  | { type: "alert";          payload: Alert }
+  | { type: "sensor_update";    payload: SensorSnapshot }
+  | { type: "robot_dispatch";   payload: DispatchCommand }
+  | { type: "agent_event";      payload: AgentEvent }
+  | { type: "alert";            payload: Alert }
+  | { type: "machine_detail";   payload: MachineDetail }
+  | { type: "robot_path";       payload: RobotPathDetail }
+  | { type: "component_fault";  payload: ComponentFaultMap }
+```
+
+**Frontend → Backend:**
+```typescript
+// Sent on WS connect and whenever placedEntities changes
+{ type: "sync_entities"; payload: {
+    entities: { id: string; category: "machine" | "robot"; x: number; z: number }[]
+}}
+
+// Sent when user selects an entity in the Palette or 3D canvas
+{ type: "subscribe_detail";   payload: { entityId: string } }
+{ type: "unsubscribe_detail"; payload: { entityId: string } }
 ```
 
 ### SensorSnapshot
@@ -388,3 +472,12 @@ Next.js Vercel deployment has a 10-second execution limit on serverless function
 
 ### Why `claude-sonnet-4-6` over Opus?
 Sonnet provides sufficient reasoning quality for structured JSON extraction tasks (fault classification, coordinate routing, RICE scoring) at significantly lower latency and cost. Opus would add latency without meaningful improvement in output quality for these constrained, well-prompted tasks.
+
+### Why sync_entities instead of individual add/remove messages?
+A full-state sync on every change is simpler to reason about than incremental add/remove: the backend always arrives at the correct state regardless of message ordering or missed events. The payload is small (≤20 entities), so the overhead is negligible. The frontend sends it on WS open (handles reconnect) and whenever `placedEntities` changes (detected in the RAF drain loop via JSON key comparison).
+
+### Why entity registry in WebSocketGateway instead of ID-prefix convention?
+Dynamic entity IDs (`press-1749375234123`, `robot-1749375234456`) have no M/R prefix. Hardcoding prefix checks creates a permanent coupling between ID format and routing logic. The registry is populated by `sync_entities` and provides an explicit `category` lookup, making the format of entity IDs irrelevant to backend routing.
+
+### Why derive isMachineSelected from placedEntities type instead of ID prefix?
+Same reason as entity registry — the frontend must not encode business logic in ID string patterns. `placedEntities.find(e => e.id === selectedId)?.type` is always accurate regardless of how the ID was generated.
