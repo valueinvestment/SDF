@@ -61,6 +61,9 @@ class AgentOrchestrator:
 
         await self._emit("A", "running")
         snapshot = self._simulator.tick()
+        if machine_id not in snapshot.machines:
+            await self._emit("A", "error", "Machine no longer exists")
+            return
         history = [
             {"ts": snapshot.ts, "vibration": snapshot.machines[machine_id].vibration,
              "temperature": snapshot.machines[machine_id].temperature,

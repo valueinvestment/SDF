@@ -2,13 +2,16 @@ import json
 from fastapi import WebSocket
 
 class WebSocketGateway:
-    def __init__(self):
+    def __init__(self, simulator=None, detail_sim=None):
         self._clients: set[WebSocket] = set()
         self._detail_subscriptions: dict[WebSocket, str] = {}
+        self._simulator = simulator
+        self._detail_sim = detail_sim
 
     async def connect(self, ws: WebSocket) -> None:
         await ws.accept()
         self._clients.add(ws)
+        print(f"[gateway] connect id={id(self)} clients={len(self._clients)}", flush=True)
 
     def disconnect(self, ws: WebSocket) -> None:
         self._clients.discard(ws)
@@ -19,15 +22,41 @@ class WebSocketGateway:
             msg = json.loads(raw)
         except Exception:
             return
-        if msg.get("type") == "subscribe_detail":
+        t = msg.get("type")
+        if t == "subscribe_detail":
             self._detail_subscriptions[ws] = msg["payload"]["entityId"]
-        elif msg.get("type") == "unsubscribe_detail":
+        elif t == "unsubscribe_detail":
             self._detail_subscriptions.pop(ws, None)
+        elif t == "sync_entities":
+            self._handle_sync_entities(msg.get("payload", {}))
+
+    def _handle_sync_entities(self, payload: dict) -> None:
+        if not self._simulator:
+            return
+        entities = payload.get("entities", [])
+        machines: dict[str, tuple[float, float]] = {}
+        robots: dict[str, tuple[float, float]] = {}
+        for e in entities:
+            if e.get("category") == "machine":
+                machines[e["id"]] = (float(e["x"]), float(e["z"]))
+            elif e.get("category") == "robot":
+                robots[e["id"]] = (float(e["x"]), float(e["z"]))
+        self._simulator.sync_entities(machines, robots)
+        if self._detail_sim:
+            self._detail_sim.sync_machines(list(machines.keys()))
+        print(
+            f"[gateway] sync_entities machines={list(machines)} robots={list(robots)}",
+            flush=True,
+        )
 
     async def broadcast(self, message: dict) -> None:
-        data = json.dumps(message)
+        try:
+            data = json.dumps(message)
+        except Exception as e:
+            print(f"[broadcast] json.dumps failed: {e}", flush=True)
+            return
         dead: set[WebSocket] = set()
-        for client in self._clients:
+        for client in list(self._clients):
             try:
                 await client.send_text(data)
             except Exception:

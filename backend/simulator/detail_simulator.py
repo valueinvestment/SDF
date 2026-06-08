@@ -17,7 +17,19 @@ class DetailSimulator:
         self._faulted_parts[machine_id].add(part)
 
     def clear_faults(self, machine_id: str) -> None:
-        self._faulted_parts[machine_id].clear()
+        if machine_id in self._faulted_parts:
+            self._faulted_parts[machine_id].clear()
+
+    def sync_machines(self, machine_ids: list[str]) -> None:
+        """Add newly tracked machines, remove untracked ones."""
+        old = set(self._base_wear)
+        new = set(machine_ids)
+        for mid in new - old:
+            self._base_wear[mid] = {p: self._rng.uniform(10, 70) for p in PARTS}
+            self._faulted_parts[mid] = set()
+        for mid in old - new:
+            self._base_wear.pop(mid, None)
+            self._faulted_parts.pop(mid, None)
 
     def get_machine_detail(self, machine_id: str) -> dict:
         now = time.time()
