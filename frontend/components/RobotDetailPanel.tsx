@@ -1,26 +1,31 @@
 "use client"
-import { useFactoryStore } from "@/store/factoryStore"
+import { useRobotDetail } from "@/hooks/useRobotDetail"
 
 const PATH_TYPE_LABEL: Record<string, string> = {
   idle_patrol: "순찰 중",
   dispatch: "파견 중",
   returning: "복귀 중",
 }
+
 const PATH_TYPE_COLOR: Record<string, string> = {
   idle_patrol: "text-green-400",
   dispatch: "text-yellow-400",
   returning: "text-blue-400",
 }
 
-export function RobotDetailPanel({ robotId }: { robotId: string }) {
-  const path = useFactoryStore((s) => s.robotPaths[robotId])
-  const dispatch = useFactoryStore((s) => s.dispatchCommand)
-  const isDispatched = dispatch?.robotId === robotId
+export function RobotDetailPanel({
+  robotId,
+  label,
+}: {
+  robotId: string
+  label?: string
+}) {
+  const { path, isDispatched } = useRobotDetail(robotId)
 
   return (
-    <div className="bg-gray-900 rounded-xl p-4 w-64 space-y-3">
+    <div className="bg-gray-900 rounded-xl p-4 w-full space-y-3">
       <div>
-        <p className="font-semibold text-gray-100">{robotId}</p>
+        <p className="font-semibold text-gray-100">{label ?? robotId}</p>
         <p className={`text-xs mt-0.5 ${isDispatched ? "text-yellow-400" : "text-green-400"}`}>
           {isDispatched ? "⚡ 파견 중" : "● 대기 중"}
         </p>
