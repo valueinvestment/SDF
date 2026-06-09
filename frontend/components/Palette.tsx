@@ -1,50 +1,43 @@
 "use client"
-import { useState } from "react"
-import { useFactoryStore } from "@/store/factoryStore"
 import { AddEntityModal } from "@/components/AddEntityModal"
+import { usePalette, TYPE_ICON } from "@/hooks/usePalette"
 import type { EntityType } from "@/lib/types"
 
-const TYPE_ICON: Record<string, string> = {
-  press: "⬛", cnc: "⚙", conveyor: "▬", robot: "◎",
-}
-
-const MACHINE_TYPES: EntityType[] = ["press", "cnc", "conveyor"]
-const ROBOT_TYPES: EntityType[] = ["robot"]
-
 export function Palette() {
-  const [modalOpen, setModalOpen] = useState(false)
-
-  const placedEntities     = useFactoryStore((s) => s.placedEntities)
-  const placementMode      = useFactoryStore((s) => s.placementMode)
-  const exitPlacementMode  = useFactoryStore((s) => s.exitPlacementMode)
-  const removeEntity       = useFactoryStore((s) => s.removeEntity)
-  const selectedEntityId   = useFactoryStore((s) => s.selectedEntityId)
-  const selectEntity       = useFactoryStore((s) => s.selectEntity)
-
-  const machines = placedEntities.filter((e) => MACHINE_TYPES.includes(e.type))
-  const robots   = placedEntities.filter((e) => ROBOT_TYPES.includes(e.type))
-
-  const handleItemClick = (poolId: string) => {
-    if (placementMode?.poolId === poolId) { exitPlacementMode(); return }
-    selectEntity(selectedEntityId === poolId ? null : poolId)
-  }
+  const {
+    modalOpen,
+    setModalOpen,
+    machines,
+    robots,
+    placedEntities,
+    placementMode,
+    selectedEntityId,
+    removeEntity,
+    handleItemClick,
+  } = usePalette()
 
   const renderItem = (poolId: string, type: EntityType, label: string) => {
     const selected = selectedEntityId === poolId
-    const active   = placementMode?.poolId === poolId
+    const active = placementMode?.poolId === poolId
     return (
       <div
         key={poolId}
         className={`flex items-center gap-2 px-2 py-1.5 rounded text-sm transition-colors cursor-pointer
-          ${active   ? "bg-yellow-600 text-white"
-          : selected ? "bg-blue-700 text-white"
-          :            "bg-gray-800 text-gray-300 hover:bg-gray-700"}`}
+          ${active
+            ? "bg-yellow-600 text-white"
+            : selected
+            ? "bg-blue-700 text-white"
+            : "bg-gray-800 text-gray-300 hover:bg-gray-700"
+          }`}
         onClick={() => handleItemClick(poolId)}
       >
         <span>{TYPE_ICON[type]}</span>
         <span className="flex-1 truncate">{label}</span>
         <button
-          onClick={(e) => { e.stopPropagation(); removeEntity(poolId) }}
+          onClick={(e) => {
+            e.stopPropagation()
+            removeEntity(poolId)
+          }}
           className="text-gray-500 hover:text-red-400 text-xs flex-shrink-0"
         >
           ✕
