@@ -9,7 +9,16 @@
 
 ---
 
-## 1. Backend (FastAPI)
+## 🌐 Live Demo
+
+| Service | URL |
+|---------|-----|
+| Frontend (Vercel) | https://frontend-rose-five-95.vercel.app |
+| Backend (Railway) | 배포 후 업데이트 예정 |
+
+---
+
+## 1. Backend (FastAPI) — 로컬 개발
 
 ```bash
 cd backend
@@ -81,7 +90,7 @@ Get-CimInstance Win32_Process -Filter "name='python.exe'" |
 
 ---
 
-## 2. Frontend (Next.js)
+## 2. Frontend (Next.js) — 로컬 개발
 
 Open a new terminal:
 
@@ -106,7 +115,7 @@ Frontend runs at `http://localhost:3000`.
 
 ---
 
-## Running Both Together
+## Running Both Together (로컬)
 
 1. Terminal 1 — start the backend (steps above).
 2. Terminal 2 — start the frontend (steps above).
@@ -134,12 +143,102 @@ npm test
 
 ---
 
-## Production Deployment
+## 🚀 Production Deployment
 
-| Service | Platform | Config file |
-|---------|----------|-------------|
-| Backend | Railway | `railway.toml` |
-| Frontend | Vercel | `frontend/vercel.json` |
+### Frontend — Vercel
 
-Set `ANTHROPIC_API_KEY` as an environment variable in your Railway service.  
-Set `NEXT_PUBLIC_WS_URL` to your Railway backend WebSocket URL in Vercel.
+Vercel CLI로 직접 배포합니다 (GitHub 불필요).
+
+```bash
+# 최초 1회: Vercel 로그인
+npx vercel login
+
+# 프리뷰 배포
+cd frontend
+npx vercel deploy --yes
+
+# 프로덕션 배포
+npx vercel deploy --prod --yes
+```
+
+배포 후 프로덕션 URL이 출력됩니다 (예: `https://frontend-rose-five-95.vercel.app`).
+
+**환경 변수 설정** (백엔드 Railway URL 확보 후):
+
+```bash
+npx vercel env add NEXT_PUBLIC_WS_URL production
+# 입력값: wss://<your-railway-app>.up.railway.app/ws
+```
+
+env 추가 후 재배포:
+
+```bash
+npx vercel deploy --prod --yes
+```
+
+---
+
+### Backend — Railway
+
+Railway CLI로 직접 배포합니다 (GitHub 불필요).
+
+**1. Railway CLI 설치 및 로그인**
+
+```bash
+npm install -g @railway/cli
+railway login
+```
+
+**2. Railway 프로젝트 초기화** (최초 1회)
+
+```bash
+cd backend
+railway init
+# 프로젝트 이름 입력 (예: sdf-digital-twin-backend)
+```
+
+**3. 환경 변수 설정**
+
+```bash
+railway variables set ANTHROPIC_API_KEY=sk-ant-...
+```
+
+**4. 배포**
+
+```bash
+railway up
+```
+
+배포 완료 후 Railway 대시보드에서 public URL을 확인합니다.  
+WebSocket 주소: `wss://<your-project>.up.railway.app/ws`
+
+**5. 서비스 설정** (Railway 대시보드에서)
+
+- **Start Command**: `uv run uvicorn main:app --host 0.0.0.0 --port $PORT`
+- **Root Directory**: `/backend`
+
+**6. Vercel에 백엔드 URL 등록**
+
+```bash
+cd frontend
+npx vercel env add NEXT_PUBLIC_WS_URL production
+# wss://<your-project>.up.railway.app/ws 입력
+
+npx vercel deploy --prod --yes
+```
+
+---
+
+### 배포 현황
+
+| 서비스 | 플랫폼 | URL | 설정 파일 |
+|--------|--------|-----|-----------|
+| Frontend | Vercel | https://frontend-rose-five-95.vercel.app | `frontend/vercel.json` |
+| Backend | Railway | 배포 후 업데이트 | `backend/pyproject.toml` |
+
+**필요한 환경 변수:**
+
+| 변수 | 서비스 | 설명 |
+|------|--------|------|
+| `ANTHROPIC_API_KEY` | Railway (Backend) | Claude API 키 |
+| `NEXT_PUBLIC_WS_URL` | Vercel (Frontend) | Railway 백엔드 WebSocket URL |
