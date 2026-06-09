@@ -35,7 +35,6 @@ export function AddEntityModal({ onClose }: Props) {
             {typeMeta.map(({ type, icon, korLabel }) => (
               <EntityCard
                 key={type}
-                type={type}
                 icon={icon}
                 label={korLabel}
                 count={countOf(type)}

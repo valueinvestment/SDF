@@ -1,7 +1,6 @@
-import type { EntityType } from "@/lib/types"
+import type { ReactNode } from "react"
 
 interface EntityCardProps {
-  type: EntityType
   icon: string
   label: string
   count: number
@@ -9,7 +8,7 @@ interface EntityCardProps {
   disabled: boolean
   onSelect: () => void
   className?: string
-  renderBadge?: (count: number, max: number) => React.ReactNode
+  renderBadge?: (count: number, max: number) => ReactNode
 }
 
 export function EntityCard({
