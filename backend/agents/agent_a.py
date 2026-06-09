@@ -40,12 +40,15 @@ Analyze the sensor data and identify the anomaly. Return ONLY valid JSON with no
 {{"severity": "low"|"medium"|"high", "classification": "<fault type>", "affected_components": ["<component>"], "confidence": <0.0-1.0>}}"""
 
     try:
-        async with asyncio.timeout(10):
+        async with asyncio.timeout(60):
+            print(f"\n[Agent A] REQUEST machine={machine_id}\n{prompt}\n")
             response = await client.messages.create(
                 model="claude-sonnet-4-6",
                 max_tokens=256,
                 messages=[{"role": "user", "content": prompt}],
             )
-            return parse_agent_a_response(response.content[0].text)
+            raw = response.content[0].text
+            print(f"[Agent A] RESPONSE\n{raw}\n")
+            return parse_agent_a_response(raw)
     except Exception:
         return AnomalyReport(severity="unknown", classification="timeout", affected_components=[], confidence=0.0, fallback=True)

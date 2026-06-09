@@ -1,3 +1,17 @@
+export interface Toast {
+  id: string
+  type: "warning" | "success" | "error"
+  title: string
+  body: string
+}
+
+export interface AlertHistoryItem {
+  id: string
+  machineId: string
+  ts: number
+  result?: string
+}
+
 export type MachineStatus = "normal" | "degraded" | "fault"
 export type RobotStatus = "idle" | "moving" | "dispatched" | "arrived"
 export type AgentId = "A" | "B" | "C"
@@ -8,7 +22,7 @@ export interface MachineState {
   temperature: number
   current: number
   status: MachineStatus
-  history: [number, number][]
+  history: [number, number, number, number][]  // [ts, vibration, temperature, current]
 }
 
 export interface RobotState {

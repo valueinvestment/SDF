@@ -31,7 +31,6 @@ export function disposeScene(scene: THREE.Scene, renderer: THREE.WebGLRenderer) 
     }
   })
   renderer.dispose()
-  renderer.forceContextLoss()
 }
 
 export const STATUS_COLORS: Record<string, number> = {

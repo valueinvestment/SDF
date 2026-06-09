@@ -59,13 +59,16 @@ Return ONLY valid JSON (no extra text):
 }}"""
 
     try:
-        async with asyncio.timeout(10):
+        async with asyncio.timeout(60):
+            print(f"\n[Agent C] REQUEST machine={machine_id}\n{prompt}\n")
             response = await client.messages.create(
                 model="claude-sonnet-4-6",
                 max_tokens=512,
                 messages=[{"role": "user", "content": prompt}],
             )
-            return parse_agent_c_response(response.content[0].text)
+            raw = response.content[0].text
+            print(f"[Agent C] RESPONSE\n{raw}\n")
+            return parse_agent_c_response(raw)
     except Exception:
         return {
             "recommendation": "scheduled_maintenance",
