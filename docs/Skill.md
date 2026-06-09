@@ -268,9 +268,9 @@ module.exports = {
 | 컴포넌트 | Headless 분리 | HeadlessUI 사용 | OSS Ready |
 |---|---|---|---|
 | `AddEntityModal` | ✅ `useAddEntityModal` hook | ✅ HeadlessUI Dialog | ✅ |
-| `Palette` | ⬜ 로직이 컴포넌트 내부에 있음 | ⬜ 미적용 | ⬜ |
-| `MachineDetailPanel` | ⬜ ECharts 로직이 혼재 | ⬜ 미적용 | ⬜ |
-| `SensorChart` | ⬜ ECharts 로직이 혼재 | ⬜ 미적용 | ⬜ |
+| `Palette` | ✅ `usePalette` hook | ⬜ 미적용 | ⬜ |
+| `MachineDetailPanel` | ✅ `useMachineDetail` hook + `BaseECharts` | ⬜ 미적용 | ⬜ |
+| `SensorChart` | ✅ `useSensorChart` hook + `BaseECharts` | ⬜ 미적용 | ⬜ |
+| `RobotDetailPanel` | ✅ `useRobotDetail` hook | ⬜ 미적용 | ⬜ |
 
-> 리팩터링 순서: `AddEntityModal` → `Palette` → `MachineDetailPanel` → `SensorChart`
-> 각 단계마다 Storybook으로 시각적 회귀 확인.
+> 리팩터링 완료. 다음 단계: 각 컴포넌트에 HeadlessUI 프리미티브 적용 및 Storybook 스토리 추가.
