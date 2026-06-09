@@ -267,7 +267,7 @@ module.exports = {
 
 | 컴포넌트 | Headless 분리 | HeadlessUI 사용 | OSS Ready |
 |---|---|---|---|
-| `AddEntityModal` | ⬜ 로직이 컴포넌트 내부에 있음 | ⬜ 미적용 | ⬜ |
+| `AddEntityModal` | ✅ `useAddEntityModal` hook | ✅ HeadlessUI Dialog | ✅ |
 | `Palette` | ⬜ 로직이 컴포넌트 내부에 있음 | ⬜ 미적용 | ⬜ |
 | `MachineDetailPanel` | ⬜ ECharts 로직이 혼재 | ⬜ 미적용 | ⬜ |
 | `SensorChart` | ⬜ ECharts 로직이 혼재 | ⬜ 미적용 | ⬜ |
