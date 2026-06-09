@@ -1,55 +1,65 @@
 "use client"
-import { useEffect, useRef } from "react"
-import * as echarts from "echarts"
-import { useFactoryStore } from "@/store/factoryStore"
+import { useMemo } from "react"
+import type * as echarts from "echarts"
+import { BaseECharts } from "@/components/BaseECharts"
+import { useSensorChart } from "@/hooks/useSensorChart"
 
 interface Props {
   machineId: string
+  label?: string
 }
 
-export function SensorChart({ machineId }: Props) {
-  const containerRef = useRef<HTMLDivElement>(null)
-  const chartRef = useRef<echarts.ECharts | null>(null)
-  const lastUpdateRef = useRef(0)
+const SERIES_CONFIG = [
+  { name: "진동(Hz)", color: "#3b82f6", index: 1 },
+  { name: "온도(°C)", color: "#f59e0b", index: 2 },
+  { name: "전류(A)",  color: "#10b981", index: 3 },
+]
 
-  useEffect(() => {
-    if (!containerRef.current) return
-    chartRef.current = echarts.init(containerRef.current, "dark")
-    chartRef.current.setOption({
-      backgroundColor: "transparent",
-      animation: false,
-      grid: { left: 40, right: 10, top: 20, bottom: 20 },
-      xAxis: { type: "time", splitLine: { show: false } },
-      yAxis: { type: "value", min: 0, max: 250, splitLine: { lineStyle: { color: "#374151" } } },
-      series: [{ type: "line", data: [], smooth: true, symbol: "none", lineStyle: { color: "#3b82f6", width: 1.5 } }],
-    })
+export function SensorChart({ machineId, label }: Props) {
+  const { history } = useSensorChart(machineId)
+  const pts = history?.length ?? 0
 
-    return () => {
-      chartRef.current?.dispose()
-    }
-  }, [])
-
-  useEffect(() => {
-    const unsub = useFactoryStore.subscribe(
-      (state) => {
-        const now = Date.now()
-        if (now - lastUpdateRef.current < 250) return
-        const history = state.machines[machineId]?.history
-        if (!history) return
-        lastUpdateRef.current = now
-        chartRef.current?.setOption(
-          { series: [{ data: history }] },
-          { notMerge: false }
-        )
-      }
-    )
-    return unsub
-  }, [machineId])
+  const option: echarts.EChartsOption = useMemo(() => ({
+    backgroundColor: "transparent",
+    animation: false,
+    grid: { left: 36, right: 10, top: 18, bottom: 18 },
+    xAxis: {
+      type: "time" as const,
+      splitLine: { show: false },
+      axisLabel: { fontSize: 9, color: "#6b7280" },
+    },
+    yAxis: {
+      type: "value" as const,
+      splitLine: { lineStyle: { color: "#1f2937" } },
+      axisLabel: { fontSize: 9, color: "#6b7280" },
+    },
+    legend: {
+      data: SERIES_CONFIG.map((s) => s.name),
+      top: 0,
+      right: 8,
+      textStyle: { fontSize: 9, color: "#9ca3af" },
+      itemWidth: 10,
+      itemHeight: 6,
+    },
+    series: SERIES_CONFIG.map((s) => ({
+      name: s.name,
+      type: "line" as const,
+      data: history ? history.map((row) => [row[0], row[s.index]]) : [],
+      smooth: true,
+      symbol: "none",
+      lineStyle: { color: s.color, width: 1.5 },
+    })),
+  }), [history])
 
   return (
     <div className="bg-gray-900 rounded-lg p-2">
-      <p className="text-xs text-gray-400 mb-1">{machineId} — Vibration (Hz)</p>
-      <div ref={containerRef} style={{ width: "100%", height: 100 }} />
+      <p className="text-xs text-gray-400 mb-1">
+        {label ?? machineId}
+        <span className="ml-2 text-gray-600 font-mono">
+          {pts > 0 ? `${pts}pts` : "대기 중..."}
+        </span>
+      </p>
+      <BaseECharts option={option} notMerge={false} />
     </div>
   )
 }
