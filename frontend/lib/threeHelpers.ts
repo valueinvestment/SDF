@@ -1,5 +1,5 @@
 import * as THREE from "three"
-import type { MachineType } from "@/lib/types"
+import type { MachineType, EntityScale } from "@/lib/types"
 
 const geoCache = new Map<string, THREE.BufferGeometry>()
 const matCache = new Map<string, THREE.Material>()
@@ -90,6 +90,18 @@ export function buildMachineGroup(poolId: string, type: MachineType): THREE.Grou
     mesh.position.set(...def.position)
     group.add(mesh)
   }
+  return group
+}
+
+/** 스케일 팩터 적용 버전 — AddEntityModal의 슬라이더 값 전달 시 사용 */
+export function buildMachineGroupScaled(
+  poolId: string,
+  type: MachineType,
+  scale: EntityScale,
+): THREE.Group {
+  const group = buildMachineGroup(poolId, type)
+  group.scale.set(scale.x, scale.y, scale.z)
+  group.userData.entityScale = scale
   return group
 }
 

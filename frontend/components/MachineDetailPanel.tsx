@@ -2,7 +2,9 @@
 import { useMemo } from "react"
 import * as echarts from "echarts"
 import { BaseECharts } from "@/components/BaseECharts"
+import { DashboardErrorBoundary } from "@/components/DashboardErrorBoundary"
 import { useMachineDetail } from "@/hooks/useMachineDetail"
+import MesOrderBadge from "@/components/MesOrderBadge"
 import type { ComponentStatus } from "@/lib/types"
 
 const STATUS_COLOR: Record<string, string> = {
@@ -111,6 +113,9 @@ export function MachineDetailPanel({
 
   return (
     <div className="bg-gray-900 rounded-xl p-4 w-full space-y-3">
+      {/* MES 생산 지시 정보 뱃지 — 최상단 */}
+      <MesOrderBadge machineId={machineId} />
+
       <div>
         <p className="font-semibold text-gray-100">{label ?? machineId}</p>
         <p className="text-xs text-gray-400 flex items-center gap-2 mt-0.5">
@@ -134,15 +139,19 @@ export function MachineDetailPanel({
         </div>
       )}
 
-      <div>
-        <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">부품 노후도</p>
-        <WearBars components={detail.components} />
-      </div>
+      <DashboardErrorBoundary label="부품 노후도">
+        <div>
+          <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">부품 노후도</p>
+          <WearBars components={detail.components} />
+        </div>
+      </DashboardErrorBoundary>
 
-      <div>
-        <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">열분포 히트맵</p>
-        <ThermalHeatmap grid={detail.thermalGrid} />
-      </div>
+      <DashboardErrorBoundary label="열분포 히트맵">
+        <div>
+          <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">열분포 히트맵</p>
+          <ThermalHeatmap grid={detail.thermalGrid} />
+        </div>
+      </DashboardErrorBoundary>
     </div>
   )
 }

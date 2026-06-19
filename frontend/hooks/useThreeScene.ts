@@ -2,13 +2,19 @@
 import { useEffect, useRef } from "react"
 import * as THREE from "three"
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js"
+import { TransformControls } from "three/examples/jsm/controls/TransformControls.js"
 import {
-  buildMachineGroup, buildRobotMesh, buildPathLine,
+  buildMachineGroup, buildMachineGroupScaled, buildRobotMesh, buildPathLine,
   addSelectionOutline, removeSelectionOutline, applyComponentFault,
   disposeScene,
 } from "@/lib/threeHelpers"
 import { useFactoryStore } from "@/store/factoryStore"
-import type { MachineType } from "@/lib/types"
+import type { MachineType, EntityScale } from "@/lib/types"
+
+/** 그리드 스냅: 값을 unit 단위로 반올림 */
+function snapToGrid(value: number, unit: number): number {
+  return Math.round(value / unit) * unit
+}
 
 // Default patrol circuits per robot — overridden by backend robot_path when selected
 const DEFAULT_PATROLS: Record<string, [number, number][]> = {
@@ -216,6 +222,84 @@ export function useThreeScene(canvasRef: React.RefObject<HTMLCanvasElement>) {
       canvas.addEventListener("mouseup", onMouseUp)
       canvas.addEventListener("dblclick", onDblClick)
 
+      // ── TransformControls (저작 모드) ──────────────────────────────
+      const transformControls = new TransformControls(camera, canvas)
+      transformControls.setMode("translate")
+      transformControls.showY = false // X/Z 축만 허용
+      // Three.js 0.167+ : TransformControls는 씬에 직접 add 불가 → getHelper() 사용
+      const tcHelper = transformControls.getHelper()
+      scene.add(tcHelper)
+
+      // 드래그 중엔 OrbitControls 비활성화
+      transformControls.addEventListener("dragging-changed", (e) => {
+        controls.enabled = !(e.value as boolean)
+      })
+
+      let transformTarget: THREE.Object3D | null = null
+
+      // 드래그 완료 시 그리드 스냅 적용 후 스토어 반영
+      transformControls.addEventListener("mouseUp", () => {
+        if (!transformTarget) return
+        const store = useFactoryStore.getState()
+        const unit = store.snapUnit
+        const snappedX = snapToGrid(transformTarget.position.x, unit)
+        const snappedZ = snapToGrid(transformTarget.position.z, unit)
+        // 그리드 범위 클램핑 (0~20)
+        const clampedX = Math.max(0.5, Math.min(19.5, snappedX))
+        const clampedZ = Math.max(0.5, Math.min(19.5, snappedZ))
+        transformTarget.position.set(clampedX, transformTarget.position.y, clampedZ)
+        const entityId = transformTarget.userData.entityId as string
+        store.updateEntityPosition(entityId, clampedX, clampedZ)
+      })
+
+      // 저작 모드 클릭: Raycasting → TransformControls 연결
+      const onEditModeClick = (e: MouseEvent) => {
+        const store = useFactoryStore.getState()
+        if (!store.editMode) return
+        const dx = e.clientX - mouseDownPos.x
+        const dy = e.clientY - mouseDownPos.y
+        if (Math.sqrt(dx * dx + dy * dy) > 5) return
+
+        const rect = canvas.getBoundingClientRect()
+        const ndc = new THREE.Vector2(
+          ((e.clientX - rect.left) / rect.width) * 2 - 1,
+          -((e.clientY - rect.top) / rect.height) * 2 + 1,
+        )
+        raycaster.setFromCamera(ndc, camera)
+        const allObjects = [
+          ...Object.values(machineGroupsRef.current),
+          ...Object.values(robotMeshesRef.current),
+        ]
+        const hits = raycaster.intersectObjects(allObjects, true)
+        if (!hits.length) {
+          transformControls.detach()
+          transformTarget = null
+          return
+        }
+        let obj: THREE.Object3D | null = hits[0].object
+        while (obj && !obj.userData.entityId) obj = obj.parent ?? null
+        if (!obj) return
+        transformControls.attach(obj)
+        transformTarget = obj
+      }
+      canvas.addEventListener("mouseup", onEditModeClick)
+
+      // editMode 변화 감지: OFF 시 TransformControls 해제
+      const unsubEditMode = useFactoryStore.subscribe((state) => {
+        if (!state.editMode) {
+          transformControls.detach()
+          transformTarget = null
+        }
+      })
+
+      // entityScales 변화 감지: 스케일 변경 시 group.scale 동기화
+      const unsubScales = useFactoryStore.subscribe((state) => {
+        for (const [entityId, scale] of Object.entries(state.entityScales)) {
+          const group = machineGroupsRef.current[entityId]
+          if (group) group.scale.set(scale.x, scale.y, scale.z)
+        }
+      })
+
       const clock = new THREE.Clock()
       const ROBOT_SPEED = 0.5 // units per second — 1 grid per 2 seconds
 
@@ -281,7 +365,8 @@ export function useThreeScene(canvasRef: React.RefObject<HTMLCanvasElement>) {
             }
           } else {
             if (!machineGroupsRef.current[entity.id]) {
-              const group = buildMachineGroup(entity.id, entity.type as MachineType)
+              const scale: EntityScale = store.entityScales[entity.id] ?? { x: 1, y: 1, z: 1 }
+              const group = buildMachineGroupScaled(entity.id, entity.type as MachineType, scale)
               group.position.set(entity.x, 0, entity.z)
               scene.add(group)
               machineGroupsRef.current[entity.id] = group
@@ -313,6 +398,11 @@ export function useThreeScene(canvasRef: React.RefObject<HTMLCanvasElement>) {
         canvas.removeEventListener("mousemove", onMouseMove)
         canvas.removeEventListener("mouseup", onMouseUp)
         canvas.removeEventListener("dblclick", onDblClick)
+        canvas.removeEventListener("mouseup", onEditModeClick)
+        unsubEditMode()
+        unsubScales()
+        scene.remove(tcHelper)
+        transformControls.dispose()
         controls.dispose()
         disposeScene(scene, renderer)
       }
@@ -371,6 +461,24 @@ export function useThreeScene(canvasRef: React.RefObject<HTMLCanvasElement>) {
     if (group) applyComponentFault(group, faultedParts)
   }
 
+  /** 룰 엔진에서 주입받는 메쉬 색상 오버레이 콜백 */
+  const applyMeshOverlay = (machineId: string, color: string | null) => {
+    const group = machineGroupsRef.current[machineId]
+    if (!group) return
+    group.traverse((obj) => {
+      if (obj instanceof THREE.Mesh) {
+        const mat = obj.material as THREE.MeshStandardMaterial
+        if (color) {
+          mat.emissive = new THREE.Color(color)
+          mat.emissiveIntensity = 0.7
+        } else {
+          mat.emissive = new THREE.Color(0x000000)
+          mat.emissiveIntensity = 0
+        }
+      }
+    })
+  }
+
   // Sync 3D selection outline when store selectedEntityId changes (e.g. from Palette click)
   useEffect(() => {
     const unsub = useFactoryStore.subscribe((state, prev) => {
@@ -389,5 +497,5 @@ export function useThreeScene(canvasRef: React.RefObject<HTMLCanvasElement>) {
     return unsub
   }, [])
 
-  return { robotPosRef, machineGroupsRef, updatePathLine, clearPathLine, updateRobotPath, updateComponentFault }
+  return { robotPosRef, machineGroupsRef, updatePathLine, clearPathLine, updateRobotPath, updateComponentFault, applyMeshOverlay }
 }
