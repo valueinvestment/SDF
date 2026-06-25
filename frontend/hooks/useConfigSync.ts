@@ -1,21 +1,14 @@
 "use client"
-/**
- * useConfigSync
- *
- * DashboardConfig + placedEntities를 URL 쿼리스트링(?config=...)에
- * 압축 직렬화/역직렬화하여 동기화하는 훅.
- *
- * - lz-string의 compressToEncodedURIComponent / decompressFromEncodedURIComponent 사용
- * - 최초 로드 시 URL 파라미터가 있으면 자동 복원
- * - exportConfig(): JSON 파일 다운로드 + URL 동기화
- * - importConfig(): JSON 파일 업로드 파서
- * - syncToURL(): 현재 상태를 URL에 인코딩
- * - applyURLConfig(): URL에서 상태 복원
- */
 
 import { useEffect, useCallback } from "react"
 import { useFactoryStore } from "@/store/factoryStore"
-import type { DashboardConfig, PlacedEntity, CameraState } from "@/lib/types"
+import type { CameraState } from "@/lib/types"
+import {
+  URL_SAFE_LENGTH,
+  decideSyncStrategy,
+  saveToLocalStorage,
+  loadFromLocalStorage,
+} from "@/lib/configSerialization"
 
 type LZAdapter = {
   compressToEncodedURIComponent: (s: string) => string
@@ -29,7 +22,6 @@ const FALLBACK_ADAPTER: LZAdapter = {
   },
 }
 
-// lz-string은 선택적으로 로드 (서버 컴포넌트 호환)
 let cachedLZ: LZAdapter | null = null
 
 async function getLZString(): Promise<LZAdapter> {
@@ -45,64 +37,93 @@ async function getLZString(): Promise<LZAdapter> {
   return cachedLZ
 }
 
-interface ConfigBundle {
-  dashboardConfig: DashboardConfig
-  placedEntities: PlacedEntity[]
-}
-
 export function useConfigSync() {
-  const setDashboardConfig = useFactoryStore((s) => s.setDashboardConfig)
   const importConfig = useFactoryStore((s) => s.importConfig)
   const exportConfigJSON = useFactoryStore((s) => s.exportConfig)
 
-  /** 현재 상태를 URL 쿼리스트링에 인코딩 */
   const syncToURL = useCallback(async () => {
     if (typeof window === "undefined") return
     const lz = await getLZString()
     const json = exportConfigJSON()
     const compressed = lz.compressToEncodedURIComponent(json)
+    const strategy = decideSyncStrategy(compressed)
+
+    if (strategy.mode === "url") {
+      const url = new URL(window.location.href)
+      url.searchParams.set("config", strategy.compressed)
+      window.history.replaceState(null, "", url.toString())
+      return
+    }
+
+    // URL 길이 초과 → localStorage 폴백 + URL 파라미터 제거
+    saveToLocalStorage(json)
     const url = new URL(window.location.href)
-    url.searchParams.set("config", compressed)
+    url.searchParams.delete("config")
     window.history.replaceState(null, "", url.toString())
+
+    useFactoryStore.getState().addToast({
+      type: "warning",
+      title: "설정 URL 초과",
+      body: `설정 크기(${strategy.length.toLocaleString()}자)가 URL 안전 기준(${URL_SAFE_LENGTH.toLocaleString()}자)을 초과하여 브라우저 저장소에 자동 저장되었습니다.`,
+    })
   }, [exportConfigJSON])
 
-  /** URL 파라미터에서 설정을 복원 */
   const applyURLConfig = useCallback(async () => {
     if (typeof window === "undefined") return false
     const url = new URL(window.location.href)
     const param = url.searchParams.get("config")
-    if (!param) return false
 
-    const lz = await getLZString()
-    const json = lz.decompressFromEncodedURIComponent(param)
-    if (!json) {
-      console.error("[useConfigSync] URL 파라미터 압축 해제 실패")
-      return false
+    // 1차: URL 파라미터에서 복원
+    if (param) {
+      const lz = await getLZString()
+      const json = lz.decompressFromEncodedURIComponent(param)
+      if (!json) {
+        console.error("[useConfigSync] URL 파라미터 압축 해제 실패")
+        return false
+      }
+      try {
+        importConfig(json)
+        return true
+      } catch {
+        console.error("[useConfigSync] 설정 복원 실패")
+        return false
+      }
     }
-    try {
-      importConfig(json)
-      return true
-    } catch {
-      console.error("[useConfigSync] 설정 복원 실패")
-      return false
+
+    // 2차: localStorage 폴백에서 복원
+    const fallback = loadFromLocalStorage()
+    if (fallback) {
+      try {
+        importConfig(fallback)
+        useFactoryStore.getState().addToast({
+          type: "success",
+          title: "설정 복원",
+          body: "브라우저 저장소에서 이전 설정을 복원했습니다.",
+        })
+        return true
+      } catch {
+        console.error("[useConfigSync] localStorage 설정 복원 실패")
+        return false
+      }
     }
+
+    return false
   }, [importConfig])
 
-  /** JSON 파일로 내보내기 + URL 동기화 */
   const exportToFile = useCallback(async () => {
     const json = exportConfigJSON()
+    // 파일 내보내기 시에도 URL/localStorage 동기화 시도
     await syncToURL()
 
     const blob = new Blob([json], { type: "application/json" })
-    const url = URL.createObjectURL(blob)
+    const blobUrl = URL.createObjectURL(blob)
     const a = document.createElement("a")
-    a.href = url
+    a.href = blobUrl
     a.download = `sdf-config-${new Date().toISOString().slice(0, 10)}.json`
     a.click()
-    URL.revokeObjectURL(url)
+    URL.revokeObjectURL(blobUrl)
   }, [exportConfigJSON, syncToURL])
 
-  /** JSON 파일에서 가져오기 */
   const importFromFile = useCallback(() => {
     const input = document.createElement("input")
     input.type = "file"
@@ -112,23 +133,20 @@ export function useConfigSync() {
       if (!file) return
       const text = await file.text()
       importConfig(text)
-      // URL도 동기화
       await syncToURL()
     }
     input.click()
   }, [importConfig, syncToURL])
 
-  /** Three.js 카메라 상태를 설정에 캡처 후 URL 동기화 */
   const captureAndSyncCamera = useCallback(async (camera: CameraState) => {
     useFactoryStore.getState().captureCamera(camera)
     await syncToURL()
   }, [syncToURL])
 
-  // 최초 로드 시 URL 파라미터 복원
   useEffect(() => {
     applyURLConfig().then((restored) => {
       if (restored) {
-        console.log("[useConfigSync] URL에서 대시보드 설정 복원 완료")
+        console.log("[useConfigSync] 설정 복원 완료")
       }
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps

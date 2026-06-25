@@ -1,4 +1,5 @@
 import * as THREE from "three"
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js"
 import type { MachineType, EntityScale } from "@sdf/types"
 
 const geoCache = new Map<string, THREE.BufferGeometry>()
@@ -154,6 +155,75 @@ export function buildPathLine(path: [number, number][]): THREE.Line {
   line.computeLineDistances()
   line.name = "__path__"
   return line
+}
+
+// ── GLTF 동적 로딩 ──────────────────────────────────────────────────
+const gltfLoader = new GLTFLoader()
+const gltfCache = new Map<string, THREE.Group>()
+
+export async function loadGLTFModel(
+  url: string,
+  entityId: string,
+): Promise<THREE.Group> {
+  const cached = gltfCache.get(url)
+  if (cached) {
+    const clone = cached.clone()
+    clone.userData.entityId = entityId
+    clone.userData.entityType = "custom"
+    return clone
+  }
+
+  return new Promise((resolve, reject) => {
+    gltfLoader.load(
+      url,
+      (gltf) => {
+        const model = gltf.scene
+        model.userData.entityId = entityId
+        model.userData.entityType = "custom"
+        // 바운딩 박스로 자동 스케일링 (최대 2 유닛에 맞춤)
+        const box = new THREE.Box3().setFromObject(model)
+        const size = box.getSize(new THREE.Vector3())
+        const maxDim = Math.max(size.x, size.y, size.z)
+        if (maxDim > 0) {
+          const scale = 2 / maxDim
+          model.scale.multiplyScalar(scale)
+        }
+        // 바닥면 정렬
+        const reBox = new THREE.Box3().setFromObject(model)
+        model.position.y = -reBox.min.y
+        gltfCache.set(url, model.clone())
+        resolve(model)
+      },
+      undefined,
+      (error) => reject(error),
+    )
+  })
+}
+
+/** 브라우저에서 File 객체를 ObjectURL로 변환 후 GLTF 로드 */
+export async function loadGLTFFromFile(
+  file: File,
+  entityId: string,
+): Promise<{ group: THREE.Group; objectUrl: string }> {
+  const objectUrl = URL.createObjectURL(file)
+  try {
+    const group = await loadGLTFModel(objectUrl, entityId)
+    return { group, objectUrl }
+  } catch (error) {
+    URL.revokeObjectURL(objectUrl)
+    throw error
+  }
+}
+
+/** 씬에서 custom GLTF 메쉬를 제거하고 ObjectURL 정리 */
+export function disposeGLTFModel(group: THREE.Group): void {
+  group.traverse((obj) => {
+    if (obj instanceof THREE.Mesh) {
+      obj.geometry.dispose()
+      if (Array.isArray(obj.material)) obj.material.forEach((m) => m.dispose())
+      else obj.material.dispose()
+    }
+  })
 }
 
 export function applyComponentFault(

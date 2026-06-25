@@ -6,7 +6,7 @@ import { TransformControls } from "three/examples/jsm/controls/TransformControls
 import {
   buildMachineGroup, buildMachineGroupScaled, buildRobotMesh, buildPathLine,
   addSelectionOutline, removeSelectionOutline, applyComponentFault,
-  disposeScene,
+  disposeScene, loadGLTFModel, disposeGLTFModel,
 } from "@/lib/threeHelpers"
 import { useFactoryStore } from "@/store/factoryStore"
 import type { MachineType, EntityScale } from "@sdf/types"
@@ -46,6 +46,7 @@ export function useThreeScene(canvasRef: React.RefObject<HTMLCanvasElement>) {
   const ghostRef = useRef<THREE.Group | null>(null)
   const sceneRef = useRef<THREE.Scene | null>(null)
   const robotWaypointsRef = useRef<Record<string, RobotWaypoints>>({})
+  const gltfLoadingRef = useRef<Set<string>>(new Set())
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -363,6 +364,26 @@ export function useThreeScene(canvasRef: React.RefObject<HTMLCanvasElement>) {
                 }
               }
             }
+          } else if (entity.type === "custom") {
+            if (!machineGroupsRef.current[entity.id] && !gltfLoadingRef.current.has(entity.id)) {
+              if (entity.modelUrl) {
+                gltfLoadingRef.current.add(entity.id)
+                loadGLTFModel(entity.modelUrl, entity.id).then((group) => {
+                  const scale: EntityScale = store.entityScales[entity.id] ?? { x: 1, y: 1, z: 1 }
+                  group.scale.set(
+                    group.scale.x * scale.x,
+                    group.scale.y * scale.y,
+                    group.scale.z * scale.z,
+                  )
+                  group.position.set(entity.x, 0, entity.z)
+                  scene.add(group)
+                  machineGroupsRef.current[entity.id] = group
+                  gltfLoadingRef.current.delete(entity.id)
+                }).catch(() => {
+                  gltfLoadingRef.current.delete(entity.id)
+                })
+              }
+            }
           } else {
             if (!machineGroupsRef.current[entity.id]) {
               const scale: EntityScale = store.entityScales[entity.id] ?? { x: 1, y: 1, z: 1 }
@@ -376,8 +397,15 @@ export function useThreeScene(canvasRef: React.RefObject<HTMLCanvasElement>) {
 
         for (const id of Object.keys(machineGroupsRef.current)) {
           if (!store.placedEntities.find((e) => e.id === id)) {
-            scene.remove(machineGroupsRef.current[id])
+            const group = machineGroupsRef.current[id]
+            scene.remove(group)
+            // custom GLTF는 고유 geometry/material을 가지므로 명시적 dispose
+            // (빌트인 기계는 캐시된 공유 리소스이므로 dispose 금지)
+            if (group.userData.entityType === "custom") {
+              disposeGLTFModel(group)
+            }
             delete machineGroupsRef.current[id]
+            gltfLoadingRef.current.delete(id)
           }
         }
         for (const id of Object.keys(robotMeshesRef.current)) {

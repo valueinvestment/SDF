@@ -63,7 +63,7 @@ export interface SensorSnapshot {
 
 // ─── Placement system ───────────────────────────────────────────
 export type MachineType = "press" | "cnc" | "conveyor"
-export type EntityType = MachineType | "robot"
+export type EntityType = MachineType | "robot" | "custom"
 
 export interface PlacedEntity {
   id: string
@@ -71,6 +71,8 @@ export interface PlacedEntity {
   x: number
   z: number
   label: string
+  /** custom 타입일 때 외부 GLB/GLTF 모델 URL 또는 ObjectURL */
+  modelUrl?: string
 }
 
 export interface PaletteItem {
@@ -199,13 +201,22 @@ export type LayoutPanelId = "canvas" | "charts" | "agent" | "detail" | "rules" |
 export interface LayoutPanel {
   id: LayoutPanelId
   label: string
-  col: string
-  row: string
+  /** 그리드 X 좌표 (0-based) */
+  x: number
+  /** 그리드 Y 좌표 (0-based) */
+  y: number
+  /** 그리드 폭 (컬럼 수) */
+  w: number
+  /** 그리드 높이 (행 수) */
+  h: number
   visible: boolean
 }
 
 export interface LayoutConfig {
-  columns: 2 | 3
+  /** DashboardConfig 버전 (v2 = react-grid-layout) */
+  version: 2
+  /** 그리드 컬럼 수 */
+  columns: number
   panels: LayoutPanel[]
 }
 

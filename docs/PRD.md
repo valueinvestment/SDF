@@ -115,14 +115,34 @@ Enterprise software engineers increasingly need to demonstrate fluency in both h
 
 ---
 
-### v2.0 — Backlog
+### v2.0 — No-Code Builder & Extensibility (Released)
+
+#### F-11: Custom 3D Model Injection (GLB/GLTF)
+- Users add a custom entity by dragging a `.glb`/`.gltf` file onto `AddEntityModal` or pasting an external model URL
+- Uploaded files are read as in-browser `ObjectURL`s (no backend storage); external URLs are referenced directly
+- Models load via `GLTFLoader`, auto-scale to a 2-unit bounding box, and floor-align
+- Custom meshes bind to the **existing** `TransformControls` gizmo + grid-snap math — scale/rotation/position editing is identical to built-in machines
+- Per-load geometry is disposed on removal; parsed scenes are cached by URL
+
+#### F-12: Draggable Grid Layout Manager
+- Dashboard widgets (3D canvas, charts, agent panel, detail, rules, MES) are freely repositioned by mouse drag and resized via a bottom-right handle
+- Built on `react-grid-layout` v2 with the `useContainerWidth` hook (no deprecated `WidthProvider`)
+- Layout coordinates (`x/y/w/h`) persist into `dashboardConfig` and serialize to URL/localStorage
+- Legacy (v1 `col/row`) layouts auto-migrate to the v2 default on import
+
+#### F-13: Defensive URL Serialization
+- Compressed `?config=` payload length is validated against a 4,000-char safe limit
+- Over the limit: URL sync is blocked, config is auto-saved to `localStorage`, and a warning Toast is shown
+- On load, state restores from the URL param first, then the localStorage fallback
+- Validation logic is a pure module (`lib/configSerialization.ts`), unit-tested independently
+
+### v2.1 — Backlog
 
 - A* pathfinding with collision avoidance between robots
-- Machine-type-specific 3D models (instead of uniform boxes)
 - Streaming agent responses (token-by-token display in Agent Panel)
 - WebGL instanced rendering for 50+ machine scale
 - Agent D — Predictive Maintenance Scheduler (5-minute timer, trend analysis)
-- Session persistence for entity layout (localStorage or backend state endpoint)
+- Backend-persisted session state endpoint (beyond localStorage)
 - Mobile-responsive layout
 
 ---
@@ -196,7 +216,7 @@ Enterprise software engineers increasingly need to demonstrate fluency in both h
 
 - Real factory hardware integration
 - User authentication / authorization
-- Persistent storage (database / localStorage)
+- Server-side persistent storage (database / backend state endpoint) — note: client-side `localStorage` is used as a config-share fallback (F-13), but no server persistence
 - Notifications (email/SMS) for alerts
 - Multi-user collaboration
 - Mobile-native app
