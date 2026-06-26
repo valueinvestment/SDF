@@ -1,0 +1,6 @@
+{
+  "buildCommand": "pnpm --filter @sdf/host-twin run build",
+  "installCommand": "pnpm install",
+  "outputDirectory": "apps/host-twin/.next",
+  "framework": "nextjs"
+}

@@ -20,13 +20,17 @@ export function BaseECharts({
   useEffect(() => {
     const el = ref.current
     if (!el) return
-    chartRef.current = echarts.init(el, "dark")
+    const chart = echarts.init(el, "dark")
+    chartRef.current = chart
     const ro = new ResizeObserver(() => chartRef.current?.resize())
     ro.observe(el)
     return () => {
       ro.disconnect()
-      chartRef.current?.dispose()
       chartRef.current = null
+      // zrender schedules its own RAF for repaint; disposing synchronously
+      // nulls the painter's layerStack before that RAF fires → crash.
+      // Deferring one frame lets any pending zrender RAF complete first.
+      requestAnimationFrame(() => chart.dispose())
     }
   }, [])
 
