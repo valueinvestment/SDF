@@ -503,7 +503,9 @@ AddEntityModal (drop / URL) → enterPlacementMode(type, id, label, modelUrl)
 - **Gizmo binding:** Custom groups carry `userData.entityId`, so the existing `TransformControls` + grid-snap (`snapToGrid`) path attaches to them unchanged — scale/rotation/position editing works identically to built-in machines.
 - **Memory:** Custom GLTF geometry/materials are **unique per load**, so on entity removal the loop calls `disposeGLTFModel()`. Built-in machines use cached shared geometry and are deliberately **not** disposed on removal.
 
-Storage is browser-memory only (ObjectURL / external URL) — no backend file store. Custom entities are not machines, so they receive no MES WorkOrder.
+Storage is browser-memory only (ObjectURL / external URL) — no backend file store. Custom entities receive no MES WorkOrder (the frontend store excludes `type === "custom"` from work-order creation).
+
+**Backend entity-sync mapping (deliberate):** `useWebSocket.buildSyncPayload` maps every non-robot entity — including `custom` — to `category: "machine"` in the `sync_entities` payload. The backend therefore registers custom models as machines and streams sensor/detail data for them, which keeps `SensorChart` and `MachineDetailPanel` consistent in online mode. **No backend change is required for custom models**, and changing the category to a new `"custom"` value would *break* detail streaming: the gateway's `if/elif` only accepts `machine`/`robot`, so a `custom` category would be dropped, leaving `get_entity_category()` to return `None` (custom IDs have no `M`/`R` prefix) and the detail panel empty. Treating a decorative model as a pure non-sensing prop would be a separate, intentional frontend+backend change, not a bug fix.
 
 ### 9.2 Draggable Grid Layout Manager (react-grid-layout v2)
 
@@ -512,6 +514,8 @@ Storage is browser-memory only (ObjectURL / external URL) — no backend file st
 - **Library:** `react-grid-layout@2.x` — a full rewrite. The deprecated `WidthProvider` HOC is **not** used; width comes from the `useContainerWidth()` hook (ResizeObserver-based), consistent with the project's existing ResizeObserver patterns. Behavior is configured via `dragConfig`/`resizeConfig` objects and `compactor={verticalCompactor}` (not v1 flat props).
 - **Persistence:** Drag/resize commits flow through `setLayoutConfig` → serialized into `dashboardConfig` → URL/localStorage (§9.3). Editing is gated by `editingLayout`; panels are `static` when not editing.
 - **Migration:** `importConfig` detects `layoutConfig.version !== 2` and resets to the v2 default layout, so legacy share-links degrade gracefully instead of crashing.
+- **Edit-mode visual aids:** While `editingLayout` is on, each panel renders (a) a **dashed blue border + faint tint** outlining the cell its extent occupies, and (b) a **`w×h` grid-size badge** in the drag handle (e.g. `2×4`), updated live from `layoutConfig` as the panel is resized. Both disappear when editing is off.
+- **3D canvas cell-fill:** `FactoryCanvas` uses `h-full` (with a `240px` min-height floor) instead of a fixed `clamp()` height, so the 3D viewport exactly fills its grid cell at any size. `FactoryCanvas`'s `ResizeObserver` resizes the WebGL renderer to match, so resizing the layout panel reflows the 3D view without distortion.
 
 ### 9.3 Defensive URL Serialization
 
