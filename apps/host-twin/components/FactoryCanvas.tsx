@@ -37,7 +37,7 @@ export function FactoryCanvas({ canvasRef }: Props) {
   }, [canvasRef])
 
   return (
-    <div className="relative">
+    <div className="relative h-full">
       {/* 저작 모드 컨트롤바 */}
       <div className="absolute top-2 right-2 z-10 flex items-center gap-2">
         {editMode && (
@@ -81,10 +81,10 @@ export function FactoryCanvas({ canvasRef }: Props) {
 
       <div
         ref={wrapperRef}
-        className={`w-full rounded-lg overflow-hidden transition-all ${
+        className={`w-full h-full rounded-lg overflow-hidden transition-all ${
           editMode ? "ring-2 ring-amber-500/50" : ""
         }`}
-        style={{ height: "clamp(380px, 55vh, 700px)" }}
+        style={{ minHeight: "240px" }}
       >
         <canvas ref={canvasRef} className="w-full h-full block" />
       </div>

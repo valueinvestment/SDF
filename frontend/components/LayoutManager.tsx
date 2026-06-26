@@ -145,12 +145,25 @@ export function LayoutGrid({ editingLayout, panels }: LayoutGridProps) {
           margin={[12, 12]}
         >
           {visiblePanels.map((panel) => (
-            <div key={panel.id} className="relative">
+            <div
+              key={panel.id}
+              className={`relative ${
+                editingLayout
+                  ? "rounded-lg border-2 border-dashed border-blue-500/60 bg-blue-500/[0.04] shadow-[0_0_0_1px_rgba(59,130,246,0.15)]"
+                  : ""
+              }`}
+            >
               {/* 편집 모드: 드래그 핸들 + 숨김 버튼 */}
               {editingLayout && (
                 <div className="rgl-drag-handle absolute top-0 left-0 right-0 z-20 flex items-center gap-1 bg-gray-900/90 border-b border-blue-800/60 px-2 py-1 rounded-t-lg cursor-grab active:cursor-grabbing">
                   <span className="text-[9px] text-blue-400 font-semibold tracking-wider select-none flex-1">
                     &#x2807; {panel.label}
+                  </span>
+                  <span
+                    className="text-[9px] font-mono text-blue-300/90 bg-blue-950/60 border border-blue-800/50 px-1 rounded select-none"
+                    title={`가로 ${panel.w}칸 × 세로 ${panel.h}행`}
+                  >
+                    {panel.w}×{panel.h}
                   </span>
                   <button
                     onClick={() => updatePanel(panel.id, { visible: false })}
