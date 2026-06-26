@@ -64,16 +64,17 @@ function makeWorkOrder(): WorkOrder {
   }
 }
 
-// ─── 기본 레이아웃 설정 ──────────────────────────────────────────────
+// ─── 기본 레이아웃 설정 (v2: react-grid-layout 좌표) ─────────────────
 const DEFAULT_LAYOUT: LayoutConfig = {
+  version: 2,
   columns: 3,
   panels: [
-    { id: "canvas",  label: "3D 캔버스",    col: "1 / 3", row: "1 / 2", visible: true },
-    { id: "agent",   label: "에이전트 패널", col: "3 / 4", row: "1 / 2", visible: true },
-    { id: "charts",  label: "센서 차트",    col: "1 / 2", row: "2 / 3", visible: true },
-    { id: "detail",  label: "상세 패널",    col: "2 / 3", row: "2 / 3", visible: true },
-    { id: "rules",   label: "룰 엔진",      col: "3 / 4", row: "2 / 3", visible: true },
-    { id: "mes",     label: "MES 모니터",   col: "1 / 4", row: "3 / 4", visible: true },
+    { id: "canvas",  label: "3D 캔버스",    x: 0, y: 0, w: 2, h: 4, visible: true },
+    { id: "agent",   label: "에이전트 패널", x: 2, y: 0, w: 1, h: 4, visible: true },
+    { id: "charts",  label: "센서 차트",    x: 0, y: 4, w: 1, h: 3, visible: true },
+    { id: "detail",  label: "상세 패널",    x: 1, y: 4, w: 1, h: 3, visible: true },
+    { id: "rules",   label: "룰 엔진",      x: 2, y: 4, w: 1, h: 3, visible: true },
+    { id: "mes",     label: "MES 모니터",   x: 0, y: 7, w: 3, h: 2, visible: true },
   ],
 }
 
@@ -103,8 +104,8 @@ interface FactoryStore {
 
   // 배치 시스템
   placedEntities: PlacedEntity[]
-  placementMode: { type: EntityType; poolId: string; label: string } | null
-  enterPlacementMode: (type: EntityType, poolId: string, label: string) => void
+  placementMode: { type: EntityType; poolId: string; label: string; modelUrl?: string } | null
+  enterPlacementMode: (type: EntityType, poolId: string, label: string, modelUrl?: string) => void
   exitPlacementMode: () => void
   placeEntity: (poolId: string, type: EntityType, x: number, z: number, label?: string) => void
   removeEntity: (poolId: string) => void
@@ -184,7 +185,7 @@ interface FactoryStore {
   layoutConfig: LayoutConfig
   setLayoutConfig: (config: LayoutConfig) => void
   updatePanel: (id: LayoutPanelId, patch: Partial<LayoutPanel>) => void
-  setLayoutColumns: (columns: 2 | 3) => void
+  setLayoutColumns: (columns: number) => void
 }
 
 export const useFactoryStore = create<FactoryStore>((set, get) => ({
@@ -247,15 +248,15 @@ export const useFactoryStore = create<FactoryStore>((set, get) => ({
 
   placedEntities: DEFAULT_PLACED_ENTITIES,
   placementMode: null,
-  enterPlacementMode: (type, poolId, label) => set({ placementMode: { type, poolId, label } }),
+  enterPlacementMode: (type, poolId, label, modelUrl) => set({ placementMode: { type, poolId, label, modelUrl } }),
   exitPlacementMode: () => set({ placementMode: null }),
   placeEntity: (poolId, type, x, z, label) =>
     set((state) => {
       if (state.placedEntities.some((e) => e.id === poolId)) return {}
-      const newEntity: PlacedEntity = { id: poolId, type, x, z, label: label ?? poolId }
-      // 새 엔티티에 대한 기본 EntityConfig 자동 생성
+      const modelUrl = state.placementMode?.modelUrl
+      const newEntity: PlacedEntity = { id: poolId, type, x, z, label: label ?? poolId, ...(modelUrl ? { modelUrl } : {}) }
       const cfg = makeDefaultEntityConfig(poolId, label ?? poolId)
-      return {
+      const patch: Partial<FactoryStore> & Pick<FactoryStore, "placedEntities" | "placementMode" | "dashboardConfig"> = {
         placedEntities: [...state.placedEntities, newEntity],
         placementMode: null,
         dashboardConfig: {
@@ -263,6 +264,11 @@ export const useFactoryStore = create<FactoryStore>((set, get) => ({
           entities: { ...state.dashboardConfig.entities, [poolId]: cfg },
         },
       }
+      if (type !== "robot" && type !== "custom") {
+        patch.workOrders = { ...state.workOrders, [poolId]: makeWorkOrder() }
+        patch.workOrderQueues = { ...state.workOrderQueues, [poolId]: [makeWorkOrder(), makeWorkOrder()] }
+      }
+      return patch
     }),
   removeEntity: (poolId) =>
     set((state) => ({
@@ -386,7 +392,15 @@ export const useFactoryStore = create<FactoryStore>((set, get) => ({
       if (parsed.dashboardConfig) set({ dashboardConfig: parsed.dashboardConfig as DashboardConfig })
       if (parsed.placedEntities) set({ placedEntities: parsed.placedEntities as PlacedEntity[] })
       if (parsed.entityScales) set({ entityScales: parsed.entityScales as Record<string, EntityScale> })
-      if (parsed.layoutConfig) set({ layoutConfig: parsed.layoutConfig as LayoutConfig })
+      if (parsed.layoutConfig) {
+        const lc = parsed.layoutConfig as Record<string, unknown>
+        // v1 (col/row 문자열) → v2 전환: 기본 레이아웃으로 초기화
+        if ((lc.version as number) !== 2) {
+          set({ layoutConfig: DEFAULT_LAYOUT })
+        } else {
+          set({ layoutConfig: lc as unknown as LayoutConfig })
+        }
+      }
       if (parsed.rules) set({ rules: parsed.rules as Rule[] })
       if (parsed.computedMetrics) set({ computedMetrics: parsed.computedMetrics as ComputedMetric[] })
     } catch {
@@ -532,6 +546,6 @@ export const useFactoryStore = create<FactoryStore>((set, get) => ({
       },
     })),
 
-  setLayoutColumns: (columns) =>
+  setLayoutColumns: (columns: number) =>
     set((state) => ({ layoutConfig: { ...state.layoutConfig, columns } })),
 }))

@@ -481,3 +481,47 @@ Dynamic entity IDs (`press-1749375234123`, `robot-1749375234456`) have no M/R pr
 
 ### Why derive isMachineSelected from placedEntities type instead of ID prefix?
 Same reason as entity registry — the frontend must not encode business logic in ID string patterns. `placedEntities.find(e => e.id === selectedId)?.type` is always accurate regardless of how the ID was generated.
+
+---
+
+## 9. No-Code Builder Extensions
+
+These extensions let users customize and extend the platform without touching the stable data pipeline or the Three.js render loop.
+
+### 9.1 Custom 3D Model Injection (GLB/GLTF)
+
+A new `EntityType` value `"custom"` carries an optional `modelUrl` on `PlacedEntity`. Users either drag-drop a `.glb`/`.gltf` file (converted to an `ObjectURL`) or paste an external URL in `AddEntityModal`.
+
+```
+AddEntityModal (drop / URL) → enterPlacementMode(type, id, label, modelUrl)
+        → placeEntity persists { type: "custom", modelUrl }
+        → useThreeScene animate loop: loadGLTFModel(modelUrl, id)
+```
+
+- **Loader:** `loadGLTFModel()` in `threeHelpers.ts` wraps `GLTFLoader`, auto-scales to a 2-unit bounding box, floor-aligns, and **caches parsed scenes by URL** (clones on reuse).
+- **Async race guard:** `gltfLoadingRef` (a `Set<entityId>`) prevents the animate loop from issuing duplicate loads for the same entity while a load is in flight.
+- **Gizmo binding:** Custom groups carry `userData.entityId`, so the existing `TransformControls` + grid-snap (`snapToGrid`) path attaches to them unchanged — scale/rotation/position editing works identically to built-in machines.
+- **Memory:** Custom GLTF geometry/materials are **unique per load**, so on entity removal the loop calls `disposeGLTFModel()`. Built-in machines use cached shared geometry and are deliberately **not** disposed on removal.
+
+Storage is browser-memory only (ObjectURL / external URL) — no backend file store. Custom entities are not machines, so they receive no MES WorkOrder.
+
+### 9.2 Draggable Grid Layout Manager (react-grid-layout v2)
+
+`LayoutPanel` moved from CSS-Grid span strings (`col: "1 / 3"`) to **integer coordinates** (`x, y, w, h`). `LayoutConfig.version` is bumped to `2`.
+
+- **Library:** `react-grid-layout@2.x` — a full rewrite. The deprecated `WidthProvider` HOC is **not** used; width comes from the `useContainerWidth()` hook (ResizeObserver-based), consistent with the project's existing ResizeObserver patterns. Behavior is configured via `dragConfig`/`resizeConfig` objects and `compactor={verticalCompactor}` (not v1 flat props).
+- **Persistence:** Drag/resize commits flow through `setLayoutConfig` → serialized into `dashboardConfig` → URL/localStorage (§9.3). Editing is gated by `editingLayout`; panels are `static` when not editing.
+- **Migration:** `importConfig` detects `layoutConfig.version !== 2` and resets to the v2 default layout, so legacy share-links degrade gracefully instead of crashing.
+
+### 9.3 Defensive URL Serialization
+
+Custom models + free layout can inflate the config JSON. `lib/configSerialization.ts` (a pure, unit-tested module extracted from `useConfigSync`) guards the URL sync:
+
+```
+exportConfig() → lz.compressToEncodedURIComponent → decideSyncStrategy(compressed)
+   ├── length ≤ 4000  → write ?config= to URL (history.replaceState)
+   └── length > 4000  → saveToLocalStorage("sdf-config-fallback")
+                         + delete ?config= + warning Toast
+```
+
+`URL_SAFE_LENGTH = 4000` is a conservative floor under common browser/server URI limits. On load, `applyURLConfig` restores from the URL param first, then falls back to localStorage. The strategy decision is a pure function (`decideSyncStrategy`), so it is fully testable without a DOM.

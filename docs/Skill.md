@@ -217,9 +217,29 @@ hooks/
 
 ## OSS 배포 준비
 
-이 패턴으로 작성된 컴포넌트는 다음 절차로 독립 패키지로 배포할 수 있습니다.
+이 패턴으로 작성된 컴포넌트는 모노레포의 독립 NPM 패키지로 배포합니다.
+배포 절차·플러그인 표준 규격의 상세는 **[`docs/PUBLISHING.md`](./PUBLISHING.md)** 참조.
 
-### 패키지 구조
+### 실제 모노레포 패키지 구조 (pnpm workspace + Turborepo)
+```
+packages/
+├── types/      → @sdf/types     공유 타입 (PlacedEntity, DashboardConfig, Rule, LayoutPanel…)
+├── core-sdk/   → @sdf/core-sdk  헤드리스 로직 (formulaEngine, simulator) — React 비의존
+│                 exports: ".", "./formula", "./simulator"
+└── ui/         → @sdf/ui        Styled 컴포넌트 (DashboardErrorBoundary…) — react는 peerDep
+```
+
+> 워크스페이스 내부 참조는 `"@sdf/types": "workspace:*"` 프로토콜 사용.
+> 공개 배포 시 `tsup`으로 ESM/CJS/`.d.ts`를 생성하고 `private: false` + `publishConfig.access: "public"`을 적용한다 (상세: PUBLISHING.md §2–3).
+
+### 플러그인 컴포넌트 표준 규격 (요약)
+- 로직(hook)과 시각화(component) 분리 — Storybook에서 store 없이 props만으로 렌더 가능
+- 위젯은 반드시 `DashboardErrorBoundary`로 감싸 등록 (에러 격리 계약)
+- 수식은 `@sdf/core-sdk/formula`의 안전 파서 사용 — `eval` 금지
+- 레이아웃 좌표는 react-grid-layout v2 `x/y/w/h` 규격 (v1 `col/row` 문자열 폐기)
+- react는 `peerDependencies`로 선언 (번들에 미포함)
+
+### 레거시 패키지 구조 (개념 설명용)
 ```
 @sdf/ui/
 ├── src/
@@ -274,3 +294,8 @@ module.exports = {
 | `RobotDetailPanel` | ✅ `useRobotDetail` hook | ⬜ 미적용 | ⬜ |
 
 > 리팩터링 완료. 다음 단계: 각 컴포넌트에 HeadlessUI 프리미티브 적용 및 Storybook 스토리 추가.
+
+### 헤드리스 분리 추가 사례 (v2.0)
+- **`lib/configSerialization.ts`** — `useConfigSync` 훅에서 URL 길이 검증·localStorage 폴백 로직을 순수 함수(`decideSyncStrategy`, `validateCompressedLength`)로 분리. DOM 없이 단위 테스트 가능 (`__tests__/configSerialization.test.ts`).
+- **`AddEntityModal`** — custom GLB/GLTF 업로드(파일 드롭 + URL 입력)는 시각화에 두되, 배치 로직은 `useAddEntityModal`의 `select(type, scale, onClose, modelUrl)`로 위임.
+- **`LayoutManager`** — react-grid-layout v2 통합. 좌표 상태는 Zustand `layoutConfig`가 단일 소스, 컴포넌트는 렌더만 담당.
