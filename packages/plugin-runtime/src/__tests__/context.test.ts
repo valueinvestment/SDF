@@ -42,7 +42,7 @@ describe("createPluginContext", () => {
     const registry = new PluginRegistry()
     const ctx = createPluginContext(registry, bindings)
     ctx.registerPanel({ id: "p1", label: "Panel 1", component: () => "hi" })
-    expect(registry.has).toBeDefined()
+    expect(registry.getPanelComponents()).toHaveProperty("p1")
     expect(bindings.registerPanelPosition).toHaveBeenCalledWith("p1", "Panel 1", undefined)
   })
 })
