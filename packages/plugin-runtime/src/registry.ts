@@ -35,11 +35,10 @@ export class PluginRegistry {
   getPanelComponents(): Record<string, ReactNode> {
     const result: Record<string, ReactNode> = {}
     for (const [id, component] of this.panelComponents.entries()) {
-      result[id] = createElement(
-        DashboardErrorBoundary,
-        { label: id },
-        createElement(PanelRenderer, { component }),
-      )
+      result[id] = createElement(DashboardErrorBoundary, {
+        label: id,
+        children: createElement(PanelRenderer, { component }),
+      })
     }
     return result
   }
