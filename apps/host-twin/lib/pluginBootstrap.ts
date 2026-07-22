@@ -19,13 +19,22 @@ function stripFunctions(state: Record<string, unknown>): Record<string, unknown>
   return result
 }
 
+// Function values (store actions) can't survive structuredClone, so strip them
+// first, then deep-clone what's left. This guarantees plugins receive a pure
+// data snapshot that shares no object references with the live store — direct
+// mutation of nested fields (e.g. `state.machines.M1.vibration = 0`) can no
+// longer corrupt the real Zustand store.
+function snapshotState(state: Record<string, unknown>): Record<string, unknown> {
+  return structuredClone(stripFunctions(state))
+}
+
 export function createHostBindings(): PluginContextBindings {
   return {
     getReadOnlyState: () =>
-      stripFunctions(useFactoryStore.getState() as unknown as Record<string, unknown>),
+      snapshotState(useFactoryStore.getState() as unknown as Record<string, unknown>),
     subscribe: (listener) =>
       useFactoryStore.subscribe(() =>
-        listener(stripFunctions(useFactoryStore.getState() as unknown as Record<string, unknown>)),
+        listener(snapshotState(useFactoryStore.getState() as unknown as Record<string, unknown>)),
       ),
     addRule: (rule) => useFactoryStore.getState().addRule(rule),
     addComputedMetric: (metric) => useFactoryStore.getState().addComputedMetric(metric),
