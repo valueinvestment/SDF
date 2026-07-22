@@ -13,6 +13,7 @@
   "dependencies": {
     "@headlessui/react": "^2.2.10",
     "@sdf/core-sdk": "workspace:*",
+    "@sdf/plugin-runtime": "workspace:*",
     "@sdf/types": "workspace:*",
     "@sdf/ui": "workspace:*",
     "@types/three": "^0.184.1",

@@ -28,6 +28,9 @@ importers:
       '@sdf/core-sdk':
         specifier: workspace:*
         version: link:../../packages/core-sdk
+      '@sdf/plugin-runtime':
+        specifier: workspace:*
+        version: link:../../packages/plugin-runtime
       '@sdf/types':
         specifier: workspace:*
         version: link:../../packages/types
