@@ -24,7 +24,9 @@ export function createHostBindings(): PluginContextBindings {
     getReadOnlyState: () =>
       stripFunctions(useFactoryStore.getState() as unknown as Record<string, unknown>),
     subscribe: (listener) =>
-      useFactoryStore.subscribe(() => listener(useFactoryStore.getState())),
+      useFactoryStore.subscribe(() =>
+        listener(stripFunctions(useFactoryStore.getState() as unknown as Record<string, unknown>)),
+      ),
     addRule: (rule) => useFactoryStore.getState().addRule(rule),
     addComputedMetric: (metric) => useFactoryStore.getState().addComputedMetric(metric),
     registerPanelPosition: (id, label, pos) =>
