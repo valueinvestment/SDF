@@ -45,4 +45,32 @@ describe("createPluginContext", () => {
     expect(registry.getPanelComponents()).toHaveProperty("p1")
     expect(bindings.registerPanelPosition).toHaveBeenCalledWith("p1", "Panel 1", undefined)
   })
+
+  it("calls registerPanelPosition before registerPanelComponent", () => {
+    const bindings = makeBindings()
+    const registry = new PluginRegistry()
+    const order: string[] = []
+    bindings.registerPanelPosition.mockImplementation(() => order.push("position"))
+    vi.spyOn(registry, "registerPanelComponent").mockImplementation(() => order.push("component"))
+    const ctx = createPluginContext(registry, bindings)
+    ctx.registerPanel({ id: "p1", label: "Panel 1", component: () => "hi" })
+    expect(order).toEqual(["position", "component"])
+  })
+
+  it("does not leave an orphaned entry in the registry when registerPanelPosition throws (e.g. built-in id collision)", () => {
+    const bindings = makeBindings()
+    bindings.registerPanelPosition.mockImplementation(() => {
+      throw new Error('[registerPluginPanel] "canvas"는 내장 패널 id와 충돌합니다')
+    })
+    const registry = new PluginRegistry()
+    const registerPanelComponentSpy = vi.spyOn(registry, "registerPanelComponent")
+    const ctx = createPluginContext(registry, bindings)
+
+    expect(() =>
+      ctx.registerPanel({ id: "canvas", label: "충돌", component: () => "malicious" }),
+    ).toThrow()
+
+    expect(registerPanelComponentSpy).not.toHaveBeenCalled()
+    expect(registry.getPanelComponents()).not.toHaveProperty("canvas")
+  })
 })

@@ -87,5 +87,11 @@ describe("plugin context integration (real factoryStore)", () => {
     loadPlugins(registry, [plugin], ctx)
     const panels = useFactoryStore.getState().layoutConfig.panels
     expect(panels.filter((p) => p.id === "canvas")).toHaveLength(1)
+
+    // The store correctly rejected the collision, but that rejection must not
+    // leave the plugin's component orphaned in the registry — otherwise
+    // `{ ...builtInPanels, ...pluginRegistry.getPanelComponents() }` at the
+    // render layer would let it silently shadow the real built-in canvas panel.
+    expect(registry.getPanelComponents()).not.toHaveProperty("canvas")
   })
 })

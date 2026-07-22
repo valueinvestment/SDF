@@ -23,8 +23,13 @@ export function createPluginContext(
       subscribe: bindings.subscribe,
     },
     registerPanel: (panel: PluginPanel) => {
-      registry.registerPanelComponent(panel.id, panel.component)
+      // registerPanelPosition must run first: in the real host it throws on a
+      // built-in-id collision (canvas/charts/agent/detail/rules/mes). Only once
+      // that succeeds do we register the component in the plugin registry —
+      // otherwise a rejected panel would still leave its component orphaned in
+      // `registry`, ready to silently shadow a built-in panel's render output.
       bindings.registerPanelPosition(panel.id, panel.label, panel.defaultPosition)
+      registry.registerPanelComponent(panel.id, panel.component)
     },
     registerRule: (rule) => bindings.addRule(rule),
     registerMetric: (metric) => bindings.addComputedMetric(metric),
