@@ -306,9 +306,11 @@ export interface PluginProps {
   /**
    * Subscribes to a slice of the host store via a selector. The component
    * only re-renders when the selected value actually changes (compared with
-   * Object.is), not on every host store update. `state` is typed `unknown` —
-   * plugin-runtime has no dependency on the host app's concrete store shape,
-   * so plugin authors cast to whatever shape they know at the call site.
+   * deep equality, since the host store clones its full state on every
+   * update, so reference equality would never bypass a re-render), not on
+   * every host store update. `state` is typed `unknown` — plugin-runtime has
+   * no dependency on the host app's concrete store shape, so plugin authors
+   * cast to whatever shape they know at the call site.
    */
   useStoreSlice: <T>(selector: (state: unknown) => T) => T
 }
