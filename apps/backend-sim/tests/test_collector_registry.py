@@ -64,3 +64,22 @@ async def test_poll_once_keeps_last_known_good_state_on_failure():
     await registry.poll_once("c1")
     assert registry.get_cached_state("M1").status == "normal"  # last good value retained
     assert collector.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_cached_state_forced_offline_after_stale_threshold():
+    registry = CollectorRegistry()
+    registry.register(FakeCollector("c1", ["M1"], poll_interval_sec=0.01))
+    await registry.poll_once("c1")
+    registry._cache["M1"].last_success = time.time() - 1.0  # far beyond 3 * 0.01s
+    result = registry.get_cached_state("M1")
+    assert result.status == "offline"
+
+
+@pytest.mark.asyncio
+async def test_cached_state_not_offline_within_threshold():
+    registry = CollectorRegistry()
+    registry.register(FakeCollector("c1", ["M1"], poll_interval_sec=1.0))
+    await registry.poll_once("c1")
+    result = registry.get_cached_state("M1")
+    assert result.status == "normal"

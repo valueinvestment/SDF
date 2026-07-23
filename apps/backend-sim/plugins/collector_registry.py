@@ -46,4 +46,6 @@ class CollectorRegistry:
         entry = self._cache.get(machine_id)
         if entry is None:
             return None
+        if time.time() - entry.last_success > 3 * entry.poll_interval_sec:
+            return entry.state.model_copy(update={"status": "offline"})
         return entry.state
