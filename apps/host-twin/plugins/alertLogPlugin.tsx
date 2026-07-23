@@ -1,15 +1,8 @@
 "use client"
-import type { PluginProps, SDFPlugin } from "@sdf/types"
-
-interface AlertHistoryItemShape {
-  id: string
-  machineId: string
-  ts: number
-  result?: string
-}
+import type { AlertHistoryItem, PluginProps, SDFPlugin } from "@sdf/types"
 
 interface FactoryStoreShape {
-  alertHistory: AlertHistoryItemShape[]
+  alertHistory: AlertHistoryItem[]
 }
 
 export function AlertLogPanel(props: PluginProps) {
