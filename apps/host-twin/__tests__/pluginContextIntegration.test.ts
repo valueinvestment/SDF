@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from "vitest"
-import { PluginRegistry, createPluginContext, loadPlugins } from "@sdf/plugin-runtime"
+import { PluginRegistry, createPluginContext, createPluginProps, loadPlugins } from "@sdf/plugin-runtime"
 import { useFactoryStore } from "@/store/factoryStore"
 import { createHostBindings } from "@/lib/pluginBootstrap"
 import type { SDFPlugin } from "@sdf/types"
@@ -92,6 +92,7 @@ describe("plugin context integration (real factoryStore)", () => {
     // leave the plugin's component orphaned in the registry — otherwise
     // `{ ...builtInPanels, ...pluginRegistry.getPanelComponents() }` at the
     // render layer would let it silently shadow the real built-in canvas panel.
-    expect(registry.getPanelComponents()).not.toHaveProperty("canvas")
+    const props = createPluginProps(createHostBindings())
+    expect(registry.getPanelComponents(props)).not.toHaveProperty("canvas")
   })
 })
