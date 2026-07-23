@@ -1,7 +1,7 @@
 # SDF 오픈소스 플러그인 플랫폼 — 확장 로드맵 (v2)
 
 **Date:** 2026-07-22
-**Status:** Approved (roadmap), Phase 0 구현 완료, Phase 1 설계 완료 — 구현 대기
+**Status:** Approved (roadmap), Phase 0 완료(머지됨, PR #4), Phase 1 완료(PR #5 리뷰 대기), Phase 2 설계 진행 중
 
 ---
 
@@ -114,6 +114,13 @@ interface PluginProps {
 ```
 2D 차트 플러그인은 `useStoreSlice`로 특정 머신의 히스토리만 구독, 위험 알림 로그 플러그인은 `rules`/`alerts` 슬라이스만 구독하는 식으로 검증한다. 두 플러그인 모두 `packages/ui`의 프리미티브 컴포넌트를 우선 사용해야 한다는 CONTRIBUTING.md의 기존 규칙을 그대로 따른다.
 
+**구현 방식 결정 (브레인스토밍 완료):**
+- Phase 0에 이미 존재하던 죽은 스텁 `PluginProps`(`{ entityId, machines, config, onConfigChange }`)는 폐기하고 `useStoreSlice` 중심으로 새로 정의한다 — 기존 스텁은 `machines`를 통째로 prop으로 내려 10Hz Render-Bypass 요구사항과 충돌했다.
+- `useStoreSlice`는 Phase 0가 이미 만든 `PluginContext.store.getState`/`subscribe`(구조: 매 스토어 변경마다 `structuredClone`으로 전체 상태를 복사해 넘기는 방식) 위에 React 공식 `useSyncExternalStore` + 선택자 메모이제이션을 얹어 구현한다. `PluginContextBindings`/`pluginBootstrap.ts`는 건드리지 않는다 — 리렌더링만 슬라이스 단위로 막고, 매 tick마다 발생하는 `structuredClone` 비용 자체는 그대로 남긴다(아래 백로그 항목으로 이관).
+- 기존 내장 컴포넌트(`SensorChart.tsx`, `AlertHistory.tsx`)는 이미 `useFactoryStore(selector)`를 직접 써서 동일한 Render-Bypass 효과를 갖고 있으므로 마이그레이션하지 않는다. `useStoreSlice`는 플러그인 전용 화이트리스트 API다.
+- 새 예시 플러그인 2개는 `SensorChart`/`AlertHistory`를 이식하지 않고, 같은 주제를 다루는 최소 구현으로 새로 만든다(범위 축소).
+- `PluginPanel.component`의 시그니처를 `() => unknown`에서 `(props: PluginProps) => unknown`으로 바꿔야 하므로, `packages/plugin-runtime/src/registry.ts`(`PanelRenderer`)도 함께 수정한다 — 이 때문에 Phase 0(PR #4)을 먼저 main에 머지한 뒤 그 위에서 Phase 2를 시작하기로 함(2026-07-23 완료).
+
 **의존관계:** Phase 0의 `PluginPanel`/패널 렌더링 경로 위에서 동작. Phase 1과는 독립적(프런트엔드 전용)이라 병렬 착수 가능.
 
 ---
@@ -200,10 +207,22 @@ interface PluginProps {
 
 ---
 
+## 백로그 — PluginContext.store.subscribe의 structuredClone 비용 최적화
+
+**목표:** Phase 0에서 발견되고 Phase 2에서 재확인된 성능 병목. `PluginContextBindings.subscribe`(`apps/host-twin/lib/pluginBootstrap.ts`)는 Zustand 선택자 없이 스토어 전체 변경을 구독하며, 매 tick마다 `structuredClone`으로 전체 상태를 복사해 리스너에 넘긴다. Phase 2의 `useStoreSlice`는 이 위에 선택자 메모이제이션을 얹어 **리렌더링**은 슬라이스 단위로 막았지만, **클론 자체**는 여전히 매번 전체 스토어에 대해 발생한다. 등록된 플러그인이 늘어나거나 스토어가 커지면 무시할 수 없는 CPU 비용이 될 수 있다.
+
+**착수 조건:** 실측(프로파일링)으로 실제 병목임이 확인되거나, 플러그인 수/스토어 크기가 늘어나는 시점. 현재는 추정일 뿐 확정된 문제가 아니므로 조기 최적화하지 않는다.
+
+**가능한 해결 방향(착수 시점에 재검토):** `PluginContextBindings`에 선택자 기반 구독(`subscribeSlice<T>(selector, listener)`)을 추가해 호스트 쪽에서 Zustand의 진짜 선택자 구독을 활용 — 선택된 슬라이스가 실제로 바뀔 때만 클론이 발생하도록 변경.
+
+**의존관계:** 없음 — Phase 2 완료 후 언제든 독립적으로 착수 가능.
+
+---
+
 ## 전체 의존관계 요약
 
 ```
-Phase 0 (완료) ──┬──▶ Phase 2 ──▶ Phase 7 ◀── Phase 1 (설계 완료)
+Phase 0 (완료) ──┬──▶ Phase 2 (진행 중) ──▶ Phase 7 ◀── Phase 1 (완료, PR 리뷰 대기)
                  ├──▶ Phase 3 ──▶ Phase 6        │
                  ├──▶ Phase 4                    ▼
                  └──▶ Phase 5              Phase 4.5
@@ -212,4 +231,5 @@ Phase 0~7 전체 ──▶ Phase 8 ──▶ Phase 9
 
 병행 트랙(회귀 테스트): Phase 0~1과 동시 시작, 이후 전 Phase의 안전망
 백로그(Quadtree): 무관, 수요 발생 시 착수
+백로그(subscribe clone 비용): Phase 2 완료 후 언제든, 실측 후 착수
 ```
