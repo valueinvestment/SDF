@@ -1,5 +1,6 @@
-import type { PluginContext, PluginPanel, Rule, ComputedMetric } from "@sdf/types"
+import type { PluginContext, PluginPanel, PluginProps, Rule, ComputedMetric } from "@sdf/types"
 import type { PluginRegistry } from "./registry"
+import { createUseStoreSlice } from "./useStoreSlice"
 
 export interface PluginContextBindings {
   getReadOnlyState: () => unknown
@@ -33,5 +34,11 @@ export function createPluginContext(
     },
     registerRule: (rule) => bindings.addRule(rule),
     registerMetric: (metric) => bindings.addComputedMetric(metric),
+  }
+}
+
+export function createPluginProps(bindings: PluginContextBindings): PluginProps {
+  return {
+    useStoreSlice: createUseStoreSlice(bindings.getReadOnlyState, bindings.subscribe),
   }
 }

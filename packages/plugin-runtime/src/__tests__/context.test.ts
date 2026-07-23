@@ -1,6 +1,8 @@
 import { describe, it, expect, vi } from "vitest"
+import { createElement } from "react"
+import { render, screen } from "@testing-library/react"
 import { PluginRegistry } from "../registry"
-import { createPluginContext } from "../context"
+import { createPluginContext, createPluginProps } from "../context"
 
 function makeBindings() {
   return {
@@ -72,5 +74,28 @@ describe("createPluginContext", () => {
 
     expect(registerPanelComponentSpy).not.toHaveBeenCalled()
     expect(registry.getPanelComponents()).not.toHaveProperty("canvas")
+  })
+})
+
+describe("createPluginProps", () => {
+  it("exposes exactly the useStoreSlice key", () => {
+    const props = createPluginProps(makeBindings())
+    expect(Object.keys(props)).toEqual(["useStoreSlice"])
+  })
+
+  it("useStoreSlice reads the selected slice from bindings.getReadOnlyState", () => {
+    const bindings = makeBindings()
+    bindings.getReadOnlyState = vi.fn(() => ({ machines: { M1: { vibration: 42 } } }))
+    const props = createPluginProps(bindings)
+
+    function TestComponent() {
+      const vibration = props.useStoreSlice(
+        (s) => (s as { machines: { M1: { vibration: number } } }).machines.M1.vibration,
+      )
+      return createElement("div", null, vibration)
+    }
+
+    render(createElement(TestComponent))
+    expect(screen.getByText("42")).toBeInTheDocument()
   })
 })
