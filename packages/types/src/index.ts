@@ -196,7 +196,7 @@ export interface EntityScale {
   z: number
 }
 
-export type LayoutPanelId = "canvas" | "charts" | "agent" | "detail" | "rules" | "mes"
+export type LayoutPanelId = string
 
 export interface LayoutPanel {
   id: LayoutPanelId
@@ -299,7 +299,7 @@ export interface PluginPanel {
   id: string
   label: string
   component: () => unknown
-  defaultPosition?: { col: string; row: string }
+  defaultPosition?: { x: number; y: number; w: number; h: number }
 }
 
 export interface PluginProps {
