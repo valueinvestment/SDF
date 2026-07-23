@@ -76,6 +76,18 @@ class SensorSimulator:
     def machine_ids(self) -> list[str]:
         return list(self._machine_positions.keys())
 
+    def robots_snapshot(self) -> dict[str, RobotState]:
+        robots = {}
+        for rid in self._robot_positions:
+            pos = self._robot_positions[rid]
+            robots[rid] = RobotState(
+                x=round(pos[0], 2),
+                y=round(pos[1], 2),
+                heading=round(self._robot_headings.get(rid, 0.0), 1),
+                status=self._robot_statuses.get(rid, "idle"),
+            )
+        return robots
+
     def tick(self) -> SensorSnapshot:
         machines = {}
         for mid in self._machine_positions:
@@ -96,18 +108,8 @@ class SensorSimulator:
                 status=status,
             )
 
-        robots = {}
-        for rid in self._robot_positions:
-            pos = self._robot_positions[rid]
-            robots[rid] = RobotState(
-                x=round(pos[0], 2),
-                y=round(pos[1], 2),
-                heading=round(self._robot_headings.get(rid, 0.0), 1),
-                status=self._robot_statuses.get(rid, "idle"),
-            )
-
         return SensorSnapshot(
             ts=int(time.time() * 1000),
             machines=machines,
-            robots=robots,
+            robots=self.robots_snapshot(),
         )
