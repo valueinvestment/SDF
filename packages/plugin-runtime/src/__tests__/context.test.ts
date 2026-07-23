@@ -3,6 +3,11 @@ import { createElement } from "react"
 import { render, screen } from "@testing-library/react"
 import { PluginRegistry } from "../registry"
 import { createPluginContext, createPluginProps } from "../context"
+import type { PluginProps } from "@sdf/types"
+
+const fakeProps: PluginProps = {
+  useStoreSlice: (selector) => selector(undefined),
+}
 
 function makeBindings() {
   return {
@@ -44,7 +49,7 @@ describe("createPluginContext", () => {
     const registry = new PluginRegistry()
     const ctx = createPluginContext(registry, bindings)
     ctx.registerPanel({ id: "p1", label: "Panel 1", component: () => "hi" })
-    expect(registry.getPanelComponents()).toHaveProperty("p1")
+    expect(registry.getPanelComponents(fakeProps)).toHaveProperty("p1")
     expect(bindings.registerPanelPosition).toHaveBeenCalledWith("p1", "Panel 1", undefined)
   })
 
@@ -73,7 +78,7 @@ describe("createPluginContext", () => {
     ).toThrow()
 
     expect(registerPanelComponentSpy).not.toHaveBeenCalled()
-    expect(registry.getPanelComponents()).not.toHaveProperty("canvas")
+    expect(registry.getPanelComponents(fakeProps)).not.toHaveProperty("canvas")
   })
 })
 
