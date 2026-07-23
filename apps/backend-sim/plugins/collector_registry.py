@@ -1,3 +1,4 @@
+import asyncio
 import time
 from dataclasses import dataclass
 from simulator.models import MachineState
@@ -16,6 +17,7 @@ class CollectorRegistry:
         self._collectors: dict[str, Collector] = {}
         self._owner: dict[str, str] = {}
         self._cache: dict[str, _CacheEntry] = {}
+        self._tasks: dict[str, asyncio.Task] = {}
 
     def register(self, collector: Collector) -> None:
         if collector.id in self._collectors:
@@ -41,6 +43,25 @@ class CollectorRegistry:
             self._cache[mid] = _CacheEntry(
                 state=state, last_success=now, poll_interval_sec=collector.poll_interval_sec
             )
+
+    async def prime_all(self) -> None:
+        for cid in list(self._collectors):
+            await self.poll_once(cid)
+
+    def start_all(self) -> None:
+        for cid, collector in self._collectors.items():
+            if cid not in self._tasks:
+                self._tasks[cid] = asyncio.create_task(self._run_loop(collector))
+
+    async def _run_loop(self, collector: Collector) -> None:
+        while True:
+            await asyncio.sleep(collector.poll_interval_sec)
+            await self.poll_once(collector.id)
+
+    def stop_all(self) -> None:
+        for task in self._tasks.values():
+            task.cancel()
+        self._tasks.clear()
 
     def get_cached_state(self, machine_id: str) -> MachineState | None:
         entry = self._cache.get(machine_id)

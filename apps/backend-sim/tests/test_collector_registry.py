@@ -83,3 +83,41 @@ async def test_cached_state_not_offline_within_threshold():
     await registry.poll_once("c1")
     result = registry.get_cached_state("M1")
     assert result.status == "normal"
+
+
+import asyncio
+
+
+@pytest.mark.asyncio
+async def test_prime_all_polls_every_registered_collector():
+    registry = CollectorRegistry()
+    registry.register(FakeCollector("c1", ["M1"]))
+    registry.register(FakeCollector("c2", ["M2"]))
+    await registry.prime_all()
+    assert registry.get_cached_state("M1") is not None
+    assert registry.get_cached_state("M2") is not None
+
+
+@pytest.mark.asyncio
+async def test_start_all_runs_background_polls():
+    registry = CollectorRegistry()
+    collector = FakeCollector("c1", ["M1"], poll_interval_sec=0.02)
+    registry.register(collector)
+    registry.start_all()
+    await asyncio.sleep(0.07)
+    registry.stop_all()
+    assert collector.call_count >= 2
+
+
+@pytest.mark.asyncio
+async def test_start_all_is_idempotent_for_already_started_collector():
+    registry = CollectorRegistry()
+    collector = FakeCollector("c1", ["M1"], poll_interval_sec=0.02)
+    registry.register(collector)
+    registry.start_all()
+    registry.start_all()  # must not spawn a second task for the same collector
+    await asyncio.sleep(0.05)
+    registry.stop_all()
+    call_count_after_stop = collector.call_count
+    await asyncio.sleep(0.05)
+    assert collector.call_count == call_count_after_stop  # stop_all actually cancelled the task
