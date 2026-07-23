@@ -77,6 +77,8 @@ git commit -m "feat(types): finalize PluginProps as useStoreSlice, widen PluginP
 
 ### Task 2: `createUseStoreSlice()` — selector hook with re-render bypass
 
+**Design note (corrected after this task was first drafted):** the comparison MUST be structural (deep) equality, not `Object.is` reference equality. `apps/host-twin/lib/pluginBootstrap.ts`'s `createHostBindings()` (Phase 0, unchanged by this plan) `structuredClone`s the **entire** store on every single update — every nested array/object gets a new reference on every tick regardless of which field actually changed. A selector like `s => s.machines["M1"].history` would get a different array reference every tick even when M1's data is unchanged, so `Object.is` would never bypass a re-render for it. Both example plugins in this plan (Tasks 8-9) use exactly this kind of array-returning selector, so `Object.is` would have silently defeated this whole phase's stated goal for both of them. Deep equality correctly recognizes structurally-identical clones as "unchanged."
+
 **Files:**
 - Create: `packages/plugin-runtime/src/useStoreSlice.ts`
 - Test: `packages/plugin-runtime/src/__tests__/useStoreSlice.test.tsx`
@@ -165,6 +167,84 @@ describe("createUseStoreSlice", () => {
     expect(renderCount).toBe(2)
     expect(screen.getByText("2")).toBeInTheDocument()
   })
+
+  it("does not re-render when a reference-typed selector's value survives a fresh structuredClone unchanged", () => {
+    // Simulates the real app's behavior: apps/host-twin/lib/pluginBootstrap.ts's
+    // createHostBindings() structuredClones the WHOLE store on every update, so
+    // even an unrelated field change produces a brand new (but structurally
+    // identical) array reference for `items`. Object.is would fail this test;
+    // deep equality must pass it.
+    interface CloneState {
+      items: number[]
+      other: number
+    }
+    let state: CloneState = { items: [1, 2, 3], other: 0 }
+    const listeners = new Set<(s: unknown) => void>()
+    const store = {
+      getState: () => state,
+      subscribe: (listener: (s: unknown) => void) => {
+        listeners.add(listener)
+        return () => listeners.delete(listener)
+      },
+      tick: (patch: Partial<CloneState>) => {
+        state = structuredClone({ ...state, ...patch })
+        listeners.forEach((l) => l(state))
+      },
+    }
+    const useStoreSlice = createUseStoreSlice(store.getState, store.subscribe)
+    let renderCount = 0
+
+    function TestComponent() {
+      renderCount++
+      const items = useStoreSlice((s) => (s as CloneState).items)
+      return <div>{items.join(",")}</div>
+    }
+
+    render(<TestComponent />)
+    expect(renderCount).toBe(1)
+
+    act(() => {
+      store.tick({ other: 999 })
+    })
+    expect(renderCount).toBe(1)
+    expect(screen.getByText("1,2,3")).toBeInTheDocument()
+  })
+
+  it("re-renders when a reference-typed selector's value actually changes structurally", () => {
+    interface CloneState {
+      items: number[]
+    }
+    let state: CloneState = { items: [1, 2, 3] }
+    const listeners = new Set<(s: unknown) => void>()
+    const store = {
+      getState: () => state,
+      subscribe: (listener: (s: unknown) => void) => {
+        listeners.add(listener)
+        return () => listeners.delete(listener)
+      },
+      tick: (patch: Partial<CloneState>) => {
+        state = structuredClone({ ...state, ...patch })
+        listeners.forEach((l) => l(state))
+      },
+    }
+    const useStoreSlice = createUseStoreSlice(store.getState, store.subscribe)
+    let renderCount = 0
+
+    function TestComponent() {
+      renderCount++
+      const items = useStoreSlice((s) => (s as CloneState).items)
+      return <div>{items.join(",")}</div>
+    }
+
+    render(<TestComponent />)
+    expect(renderCount).toBe(1)
+
+    act(() => {
+      store.tick({ items: [1, 2, 3, 4] })
+    })
+    expect(renderCount).toBe(2)
+    expect(screen.getByText("1,2,3,4")).toBeInTheDocument()
+  })
 })
 ```
 
@@ -180,6 +260,28 @@ Create `packages/plugin-runtime/src/useStoreSlice.ts`:
 ```typescript
 import { useSyncExternalStore, useRef, useCallback } from "react"
 
+function deepEqual(a: unknown, b: unknown): boolean {
+  if (Object.is(a, b)) return true
+  if (typeof a !== "object" || typeof b !== "object" || a === null || b === null) return false
+  if (Array.isArray(a) !== Array.isArray(b)) return false
+  if (Array.isArray(a) && Array.isArray(b)) {
+    if (a.length !== b.length) return false
+    for (let i = 0; i < a.length; i++) {
+      if (!deepEqual(a[i], b[i])) return false
+    }
+    return true
+  }
+  const aKeys = Object.keys(a as object)
+  const bKeys = Object.keys(b as object)
+  if (aKeys.length !== bKeys.length) return false
+  for (const key of aKeys) {
+    if (!deepEqual((a as Record<string, unknown>)[key], (b as Record<string, unknown>)[key])) {
+      return false
+    }
+  }
+  return true
+}
+
 export function createUseStoreSlice(
   getState: () => unknown,
   subscribe: (listener: (state: unknown) => void) => () => void,
@@ -191,7 +293,7 @@ export function createUseStoreSlice(
 
     const getSnapshot = useCallback(() => {
       const next = selectorRef.current(getState())
-      if (lastValueRef.current && Object.is(lastValueRef.current.value, next)) {
+      if (lastValueRef.current && deepEqual(lastValueRef.current.value, next)) {
         return lastValueRef.current.value
       }
       lastValueRef.current = { value: next }
@@ -211,13 +313,13 @@ export function createUseStoreSlice(
 - [ ] **Step 4: Run test to verify it passes**
 
 Run: `pnpm --filter @sdf/plugin-runtime test`
-Expected: PASS (16 tests total — 13 existing + 3 new)
+Expected: PASS (18 tests total — 13 existing + 5 new)
 
 - [ ] **Step 5: Commit**
 
 ```bash
 git add packages/plugin-runtime/src/useStoreSlice.ts packages/plugin-runtime/src/__tests__/useStoreSlice.test.tsx
-git commit -m "feat(plugin-runtime): add createUseStoreSlice with re-render bypass on unrelated store changes"
+git commit -m "feat(plugin-runtime): add createUseStoreSlice with deep-equal re-render bypass across cloned store snapshots"
 ```
 
 ---

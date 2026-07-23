@@ -68,6 +68,28 @@ export interface PluginProps {
 ```typescript
 import { useSyncExternalStore, useRef, useCallback } from "react"
 
+function deepEqual(a: unknown, b: unknown): boolean {
+  if (Object.is(a, b)) return true
+  if (typeof a !== "object" || typeof b !== "object" || a === null || b === null) return false
+  if (Array.isArray(a) !== Array.isArray(b)) return false
+  if (Array.isArray(a) && Array.isArray(b)) {
+    if (a.length !== b.length) return false
+    for (let i = 0; i < a.length; i++) {
+      if (!deepEqual(a[i], b[i])) return false
+    }
+    return true
+  }
+  const aKeys = Object.keys(a as object)
+  const bKeys = Object.keys(b as object)
+  if (aKeys.length !== bKeys.length) return false
+  for (const key of aKeys) {
+    if (!deepEqual((a as Record<string, unknown>)[key], (b as Record<string, unknown>)[key])) {
+      return false
+    }
+  }
+  return true
+}
+
 export function createUseStoreSlice(
   getState: () => unknown,
   subscribe: (listener: (state: unknown) => void) => () => void,
@@ -79,7 +101,7 @@ export function createUseStoreSlice(
 
     const getSnapshot = useCallback(() => {
       const next = selectorRef.current(getState())
-      if (lastValueRef.current && Object.is(lastValueRef.current.value, next)) {
+      if (lastValueRef.current && deepEqual(lastValueRef.current.value, next)) {
         return lastValueRef.current.value
       }
       lastValueRef.current = { value: next }
@@ -98,8 +120,9 @@ export function createUseStoreSlice(
 
 - `getState`/`subscribe`는 Phase 0이 이미 만든 `PluginContextBindings.getReadOnlyState`/`subscribe`를 그대로 재사용한다 — **`PluginContextBindings` 인터페이스와 `createHostBindings()`의 구현 내용은 변경하지 않는다.** (`pluginBootstrap.ts` 파일 자체는 §2.3에서 설명하는 `pluginProps` export 한 줄이 추가되지만, 이는 기존 바인딩을 감싸는 것일 뿐 바인딩 자체를 바꾸는 게 아니다.)
 - `subscribe`는 여전히 스토어 전체 변경마다 (매 10Hz tick마다) 전체 상태를 `structuredClone`해서 리스너에 넘긴다 — 이 비용 자체는 그대로 남는다 (§1 비목표, 백로그 항목).
-- `useStoreSlice`가 실제로 막는 것은 **React 리렌더링**이다: `getSnapshot`이 이전 선택 결과와 `Object.is`로 동일하면 이전 참조를 그대로 반환하므로, `useSyncExternalStore`는 선택된 슬라이스가 실제로 바뀌지 않는 한 컴포넌트를 리렌더링하지 않는다.
-- 원시값(숫자, 문자열)이나 배열/객체를 매번 새로 만들지 않는 선택자(`s => s.machines["M1"].history` 같이 참조를 그대로 반환하는 선택자)에 대해서만 이 메모이제이션이 유효하다. 매 호출마다 새 객체를 만드는 선택자(`s => ({ ...s.machines["M1"] })`)는 여전히 매번 리렌더링을 유발한다 — 이는 Zustand의 기본 `useStore(selector)` 동작과 동일한 트레이드오프이며, Phase 2에서 별도로 해결하지 않는다 (플러그인 작성 가이드에 한 줄 안내만 남긴다).
+- `useStoreSlice`가 실제로 막는 것은 **React 리렌더링**이다: `getSnapshot`이 이전 선택 결과와 동일하면 이전 참조를 그대로 반환하므로, `useSyncExternalStore`는 선택된 슬라이스가 실제로 바뀌지 않는 한 컴포넌트를 리렌더링하지 않는다.
+- **동등성 비교는 `Object.is`가 아니라 구조적(deep) 비교를 써야 한다 — 이는 설계 초안의 결함이었고, Task 2 구현 중 발견되어 수정되었다.** 이유: `bindings.getReadOnlyState`/`subscribe`(Phase 0, `apps/host-twin/lib/pluginBootstrap.ts`)는 스토어가 바뀔 때마다(=매 10Hz tick마다) **스토어 전체**를 `structuredClone`한다 — 특정 슬라이스만 바뀌어도 관련 없는 다른 모든 필드까지 포함해 트리 전체가 새로 복제된다. 즉 `s => s.machines["M1"].history` 같은 참조 반환형 선택자라도, M1의 데이터가 실제로는 안 바뀐 tick에서조차 매번 **다른 배열 참조**를 돌려받는다 — `Object.is`는 이 경우 항상 `false`를 반환해 리렌더링을 막지 못한다. 이 문제는 원시값(숫자/문자열/불리언)을 뽑는 선택자에는 영향이 없지만(값 비교이므로), 이번 Phase 2의 두 예시 플러그인이 실제로 쓰는 선택자(`history` 배열, `alertHistory` 배열)는 **정확히 이 영향을 받는 참조형 선택자**이므로, `Object.is`로는 Phase 2의 핵심 목표(Render-Bypass)가 두 예시 플러그인 모두에서 사실상 동작하지 않았을 것이다. `deepEqual`로 바꾸면 클론 경계를 넘나들어도 구조적으로 동일한 값은 올바르게 "변경 없음"으로 판정된다.
+- `deepEqual`은 이 파일 안에서만 쓰는 비공개 헬퍼로, JSON 호환 데이터(배열/일반 객체/원시값 — `structuredClone`으로 복제 가능한 데이터는 전부 포함)를 재귀적으로 비교한다. 별도 패키지 의존성을 추가하지 않는다.
 
 `createPluginContext()`가 `useStoreSlice`도 만들어 `PluginProps`를 구성할 수 있도록, `packages/plugin-runtime/src/context.ts`에 헬퍼를 추가한다:
 
