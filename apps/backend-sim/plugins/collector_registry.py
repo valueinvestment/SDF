@@ -1,3 +1,4 @@
+import time
 from dataclasses import dataclass
 from simulator.models import MachineState
 from plugins.contracts import Collector
@@ -27,6 +28,19 @@ class CollectorRegistry:
         self._collectors[collector.id] = collector
         for mid in collector.machine_ids:
             self._owner[mid] = collector.id
+
+    async def poll_once(self, collector_id: str) -> None:
+        collector = self._collectors[collector_id]
+        try:
+            states = await collector.collect()
+        except Exception as e:
+            print(f"[CollectorRegistry] collector '{collector.id}' collect() failed: {e}", flush=True)
+            return
+        now = time.time()
+        for mid, state in states.items():
+            self._cache[mid] = _CacheEntry(
+                state=state, last_success=now, poll_interval_sec=collector.poll_interval_sec
+            )
 
     def get_cached_state(self, machine_id: str) -> MachineState | None:
         entry = self._cache.get(machine_id)

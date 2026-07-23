@@ -1,3 +1,5 @@
+import time
+
 import pytest
 from plugins.collector_registry import CollectorRegistry
 from simulator.models import MachineState
@@ -41,3 +43,24 @@ def test_get_cached_state_returns_none_before_any_poll():
     registry = CollectorRegistry()
     registry.register(FakeCollector("c1", ["M1"]))
     assert registry.get_cached_state("M1") is None
+
+
+@pytest.mark.asyncio
+async def test_poll_once_populates_cache():
+    registry = CollectorRegistry()
+    registry.register(FakeCollector("c1", ["M1", "M2"]))
+    await registry.poll_once("c1")
+    assert registry.get_cached_state("M1").status == "normal"
+    assert registry.get_cached_state("M2").status == "normal"
+
+
+@pytest.mark.asyncio
+async def test_poll_once_keeps_last_known_good_state_on_failure():
+    registry = CollectorRegistry()
+    collector = FakeCollector("c1", ["M1"])
+    registry.register(collector)
+    await registry.poll_once("c1")
+    collector.fail = True
+    await registry.poll_once("c1")
+    assert registry.get_cached_state("M1").status == "normal"  # last good value retained
+    assert collector.call_count == 2
