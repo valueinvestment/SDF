@@ -16,7 +16,7 @@ export interface AlertHistoryItem {
   result?: string
 }
 
-export type MachineStatus = "normal" | "degraded" | "fault"
+export type MachineStatus = "normal" | "degraded" | "fault" | "offline"
 export type RobotStatus = "idle" | "moving" | "dispatched" | "arrived"
 export type AgentId = "A" | "B" | "C"
 export type AgentStatus = "running" | "complete" | "error"
