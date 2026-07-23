@@ -78,6 +78,8 @@ const DEFAULT_LAYOUT: LayoutConfig = {
   ],
 }
 
+const BUILT_IN_PANEL_IDS = new Set(["canvas", "charts", "agent", "detail", "rules", "mes"])
+
 const DEFAULT_PLACED_ENTITIES: PlacedEntity[] = [
   { id: "M1", type: "press",    x: 3,  z: 3,  label: "프레스" },
   { id: "M2", type: "cnc",      x: 7,  z: 3,  label: "CNC" },
@@ -186,6 +188,11 @@ interface FactoryStore {
   setLayoutConfig: (config: LayoutConfig) => void
   updatePanel: (id: LayoutPanelId, patch: Partial<LayoutPanel>) => void
   setLayoutColumns: (columns: number) => void
+  registerPluginPanel: (
+    id: string,
+    label: string,
+    defaultPosition?: { x: number; y: number; w: number; h: number },
+  ) => void
 }
 
 export const useFactoryStore = create<FactoryStore>((set, get) => ({
@@ -548,4 +555,25 @@ export const useFactoryStore = create<FactoryStore>((set, get) => ({
 
   setLayoutColumns: (columns: number) =>
     set((state) => ({ layoutConfig: { ...state.layoutConfig, columns } })),
+
+  registerPluginPanel: (id, label, defaultPosition) => {
+    if (BUILT_IN_PANEL_IDS.has(id)) {
+      throw new Error(`[registerPluginPanel] "${id}"는 내장 패널 id와 충돌합니다`)
+    }
+    set((state) => {
+      if (state.layoutConfig.panels.some((p) => p.id === id)) return {}
+      const nextY = state.layoutConfig.panels.length
+        ? Math.max(...state.layoutConfig.panels.map((p) => p.y + p.h))
+        : 0
+      const panel: LayoutPanel = defaultPosition
+        ? { id, label, ...defaultPosition, visible: true }
+        : { id, label, x: 0, y: nextY, w: 1, h: 3, visible: true }
+      return {
+        layoutConfig: {
+          ...state.layoutConfig,
+          panels: [...state.layoutConfig.panels, panel],
+        },
+      }
+    })
+  },
 }))

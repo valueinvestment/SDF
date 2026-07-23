@@ -195,3 +195,43 @@ describe("rule engine cooldown", () => {
     expect(useFactoryStore.getState().rules[0].lastTriggeredAt).toBe(123456)
   })
 })
+
+describe("registerPluginPanel", () => {
+  beforeEach(() => {
+    useFactoryStore.setState({
+      layoutConfig: {
+        version: 2,
+        columns: 3,
+        panels: [
+          { id: "canvas", label: "3D 캔버스", x: 0, y: 0, w: 2, h: 4, visible: true },
+        ],
+      },
+    })
+  })
+
+  it("appends a new panel below existing panels when no defaultPosition is given", () => {
+    useFactoryStore.getState().registerPluginPanel("demo-panel", "데모 패널")
+    const panels = useFactoryStore.getState().layoutConfig.panels
+    const panel = panels.find((p) => p.id === "demo-panel")
+    expect(panel).toEqual({ id: "demo-panel", label: "데모 패널", x: 0, y: 4, w: 1, h: 3, visible: true })
+  })
+
+  it("uses the given defaultPosition when provided", () => {
+    useFactoryStore.getState().registerPluginPanel("demo-panel", "데모 패널", { x: 1, y: 0, w: 2, h: 2 })
+    const panel = useFactoryStore.getState().layoutConfig.panels.find((p) => p.id === "demo-panel")
+    expect(panel).toEqual({ id: "demo-panel", label: "데모 패널", x: 1, y: 0, w: 2, h: 2, visible: true })
+  })
+
+  it("is idempotent — registering the same id twice does not duplicate the panel", () => {
+    useFactoryStore.getState().registerPluginPanel("demo-panel", "데모 패널")
+    useFactoryStore.getState().registerPluginPanel("demo-panel", "데모 패널")
+    const matches = useFactoryStore.getState().layoutConfig.panels.filter((p) => p.id === "demo-panel")
+    expect(matches).toHaveLength(1)
+  })
+
+  it("throws when the id collides with a built-in panel", () => {
+    expect(() => useFactoryStore.getState().registerPluginPanel("canvas", "충돌")).toThrow(
+      /내장 패널 id와 충돌/,
+    )
+  })
+})
