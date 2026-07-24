@@ -70,16 +70,17 @@ const DEFAULT_LAYOUT: LayoutConfig = {
   version: 2,
   columns: 3,
   panels: [
-    { id: "canvas",  label: "3D 캔버스",    x: 0, y: 0, w: 2, h: 4, visible: true },
-    { id: "agent",   label: "에이전트 패널", x: 2, y: 0, w: 1, h: 4, visible: true },
-    { id: "charts",  label: "센서 차트",    x: 0, y: 4, w: 1, h: 3, visible: true },
-    { id: "detail",  label: "상세 패널",    x: 1, y: 4, w: 1, h: 3, visible: true },
-    { id: "rules",   label: "룰 엔진",      x: 2, y: 4, w: 1, h: 3, visible: true },
-    { id: "mes",     label: "MES 모니터",   x: 0, y: 7, w: 3, h: 2, visible: true },
+    { id: "canvas",    label: "3D 캔버스",       x: 0, y: 0, w: 2, h: 4, visible: true },
+    { id: "agent",     label: "에이전트 패널",    x: 2, y: 0, w: 1, h: 4, visible: true },
+    { id: "charts",    label: "센서 차트",       x: 0, y: 4, w: 1, h: 3, visible: true },
+    { id: "detail",    label: "상세 패널",       x: 1, y: 4, w: 1, h: 3, visible: true },
+    { id: "rules",     label: "룰 엔진",         x: 2, y: 4, w: 1, h: 3, visible: true },
+    { id: "mes",       label: "MES 모니터",      x: 0, y: 7, w: 3, h: 2, visible: true },
+    { id: "inspector", label: "플러그인 인스펙터", x: 0, y: 9, w: 3, h: 3, visible: process.env.NODE_ENV !== "production" },
   ],
 }
 
-const BUILT_IN_PANEL_IDS = new Set(["canvas", "charts", "agent", "detail", "rules", "mes"])
+const BUILT_IN_PANEL_IDS = new Set(["canvas", "charts", "agent", "detail", "rules", "mes", "inspector"])
 
 const DEFAULT_PLACED_ENTITIES: PlacedEntity[] = [
   { id: "M1", type: "press",    x: 3,  z: 3,  label: "프레스" },
