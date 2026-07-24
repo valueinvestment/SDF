@@ -1,6 +1,7 @@
 import { createElement, type ReactNode } from "react"
 import { DashboardErrorBoundary } from "@sdf/ui"
 import type { SDFPlugin, PluginProps } from "@sdf/types"
+import { PluginPanelConflictError } from "./errors"
 
 function PanelRenderer({
   component,
@@ -33,7 +34,7 @@ export class PluginRegistry {
 
   registerPanelComponent(id: string, component: (props: PluginProps) => unknown): void {
     if (this.panelComponents.has(id)) {
-      throw new Error(`[PluginRegistry] panel id already registered: ${id}`)
+      throw new PluginPanelConflictError(`[PluginRegistry] panel id already registered: ${id}`)
     }
     this.panelComponents.set(id, component)
   }

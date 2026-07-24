@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest"
 import { render, screen } from "@testing-library/react"
 import { vi } from "vitest"
 import { PluginRegistry } from "../registry"
+import { PluginPanelConflictError } from "../errors"
 import type { SDFPlugin, PluginProps } from "@sdf/types"
 
 const fakeProps: PluginProps = {
@@ -66,6 +67,14 @@ describe("PluginRegistry — panel components", () => {
     registry.registerPanelComponent("demo", () => "first")
     expect(() => registry.registerPanelComponent("demo", () => "second")).toThrow(
       /panel id already registered/,
+    )
+  })
+
+  it("throws specifically a PluginPanelConflictError on duplicate panel id", () => {
+    const registry = new PluginRegistry()
+    registry.registerPanelComponent("demo", () => "first")
+    expect(() => registry.registerPanelComponent("demo", () => "second")).toThrow(
+      PluginPanelConflictError,
     )
   })
 })
