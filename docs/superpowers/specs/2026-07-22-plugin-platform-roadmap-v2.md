@@ -223,6 +223,18 @@ interface PluginProps {
 
 ---
 
+## 백로그 — Plugin Inspector에 rule/metric 등록 개수 표시
+
+**목표:** Phase 3b(플러그인 인스펙터) 브레인스토밍 중 논의되었으나 이번 스코프에서 제외됨. `PluginRegistry.list()`가 반환하는 `PluginSummary`에 각 플러그인이 등록한 `ruleCount`/`metricCount`를 추가하는 것 — 다만 이 값들을 실제로 검증(화이트리스트 준수 여부 등)하지는 않고 단순 집계로만 노출.
+
+**제외 이유:** Phase 3b는 id 충돌/등록·활성화 실패만 보여주기로 범위를 좁혔고, rule/metric 개수는 그 목적에 기여하지 않음. 또한 구현하려면 `createPluginContext`가 현재 모르는 `pluginId`를 클로저로 전달받도록 시그니처를 넓혀야 해서, 명확한 필요 없이는 배관만 늘리는 셈.
+
+**착수 조건:** 실제로 이 정보가 필요한 구체적 요구(예: 특정 플러그인이 과도하게 많은 rule을 등록해 디버깅이 필요했던 사례)가 생기면 착수.
+
+**의존관계:** Phase 3b 완료 후 언제든 독립적으로 착수 가능.
+
+---
+
 ## 전체 의존관계 요약
 
 ```
@@ -237,4 +249,5 @@ Phase 0~7 전체 ──▶ Phase 8 ──▶ Phase 9
 병행 트랙(회귀 테스트): Phase 0~1과 동시 시작, 이후 전 Phase의 안전망
 백로그(Quadtree): 무관, 수요 발생 시 착수
 백로그(subscribe clone 비용): Phase 2 완료 후 언제든, 실측 후 착수
+백로그(Inspector rule/metric 개수): Phase 3b 완료 후 언제든, 구체적 필요 발생 시 착수
 ```
