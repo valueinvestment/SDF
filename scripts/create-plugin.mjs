@@ -108,7 +108,7 @@ export function insertPluginImportAndEntry(source, { camelName, id }) {
     )
   }
   const [fullMatch, prefix, body, suffix] = arrayMatch
-  const trimmedBody = body.trim()
+  const trimmedBody = body.trim().replace(/,\s*$/, "")
   const newBody = trimmedBody.length === 0 ? `${camelName}Plugin` : `${trimmedBody}, ${camelName}Plugin`
 
   return (

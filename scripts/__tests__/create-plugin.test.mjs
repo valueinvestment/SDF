@@ -116,3 +116,27 @@ test("insertPluginImportAndEntry throws when the installedPlugins array can't be
     /Could not find/,
   )
 })
+
+test("insertPluginImportAndEntry strips a trailing comma before appending", () => {
+  const sourceWithTrailingComma = `import type { SDFPlugin } from "@sdf/types"
+import { sensorChartPlugin } from "@/plugins/sensorChartPlugin"
+
+export const installedPlugins: SDFPlugin[] = [sensorChartPlugin,]
+`
+  const result = insertPluginImportAndEntry(sourceWithTrailingComma, {
+    camelName: "sensorHeatmap",
+    id: "sensor-heatmap",
+  })
+  assert.match(
+    result,
+    /export const installedPlugins: SDFPlugin\[\] = \[sensorChartPlugin, sensorHeatmapPlugin\]/,
+  )
+})
+
+test("insertPluginImportAndEntry throws when no import anchor can be found", () => {
+  const sourceWithNoAnchors = `export const installedPlugins: SDFPlugin[] = []`
+  assert.throws(
+    () => insertPluginImportAndEntry(sourceWithNoAnchors, { camelName: "x", id: "x" }),
+    /Could not find an import anchor/,
+  )
+})
