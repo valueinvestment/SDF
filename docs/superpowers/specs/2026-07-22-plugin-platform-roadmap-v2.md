@@ -1,7 +1,7 @@
 # SDF 오픈소스 플러그인 플랫폼 — 확장 로드맵 (v2)
 
 **Date:** 2026-07-22
-**Status:** Approved (roadmap), Phase 0 완료(머지됨, PR #4), Phase 1 완료(PR #5 리뷰 대기), Phase 2 완료(PR #6 리뷰 대기)
+**Status:** Approved (roadmap), Phase 0 완료(머지됨, PR #4), Phase 1 완료(PR #5 리뷰 대기), Phase 2 완료(머지됨, PR #6), Phase 3a 완료(PR #7 리뷰 대기)
 
 ---
 
@@ -129,7 +129,9 @@ interface PluginProps {
 
 ## Phase 3 — 플러그인 보일러플레이트 생성기 + 인스펙터
 
-**목표:** 서드파티 기여자가 `npx create-sdf-plugin`으로 `SDFPlugin` 구현체 + 테스트 + (필요시) Storybook 스토리가 갖춰진 스캐폴드를 즉시 받을 수 있게 한다. 프런트엔드/백엔드 플러그인 두 템플릿을 모두 지원(Phase 0, Phase 1 계약 기준).
+**상태:** 두 개의 독립적인 하위 시스템으로 분리해 진행 (브레인스토밍 중 결정). **Phase 3a(생성기 CLI) 완료** — PR: `phase3a/create-plugin-cli` → `main`, PR #7. 상세 설계는 `2026-07-24-plugin-platform-phase3-create-plugin-cli-design.md`, 구현 계획은 `2026-07-24-plugin-platform-phase3a-create-plugin-cli-implementation.md` 참조. 실제 구현은 원래 계획한 `npx create-sdf-plugin`(발행형 npm 패키지) 대신 로컬 레포 스크립트(`pnpm create-plugin <name>`, 프런트엔드 전용, Storybook 미포함)로 축소됨 — 이유는 해당 설계 문서 §1 참조. **Phase 3b(인스펙터)는 아직 브레인스토밍 전.**
+
+**목표(원 구상, 3a/3b 분리 이전):** 서드파티 기여자가 `npx create-sdf-plugin`으로 `SDFPlugin` 구현체 + 테스트 + (필요시) Storybook 스토리가 갖춰진 스캐폴드를 즉시 받을 수 있게 한다. 프런트엔드/백엔드 플러그인 두 템플릿을 모두 지원(Phase 0, Phase 1 계약 기준).
 
 **플러그인 인스펙터**는 개발 모드 전용 UI 패널로, `PluginRegistry`에 등록된 플러그인 목록과 각각의 화이트리스트 준수 여부(등록한 패널/룰/지표가 스키마와 일치하는지), id 충돌, 활성화 실패 로그를 시각적으로 보여준다. `PluginRegistry`에 읽기 전용 introspection API(`list()`, `getErrors(id)` 등)를 추가해야 하며, 이는 Phase 6의 모니터링 대시보드와 데이터 소스를 공유하게 될 가능성이 높다 — 두 Phase가 동일한 "에러 리포팅 채널"을 필요로 하므로 착수 순서상 Phase 3에서 설계한 채널을 Phase 6이 재사용하는 편이 낫다.
 
@@ -224,10 +226,11 @@ interface PluginProps {
 ## 전체 의존관계 요약
 
 ```
-Phase 0 (완료) ──┬──▶ Phase 2 (완료, PR 리뷰 대기) ──▶ Phase 7 ◀── Phase 1 (완료, PR 리뷰 대기)
-                 ├──▶ Phase 3 ──▶ Phase 6        │
-                 ├──▶ Phase 4                    ▼
-                 └──▶ Phase 5              Phase 4.5
+Phase 0 (완료, 머지됨) ──┬──▶ Phase 2 (완료, 머지됨) ──▶ Phase 7 ◀── Phase 1 (완료, PR 리뷰 대기)
+                        ├──▶ Phase 3a (완료, PR 리뷰 대기) ──▶ Phase 3b ──▶ Phase 6
+                        ├──▶ Phase 4                                       │
+                        └──▶ Phase 5                                       ▼
+                                                                      Phase 4.5
 
 Phase 0~7 전체 ──▶ Phase 8 ──▶ Phase 9
 
