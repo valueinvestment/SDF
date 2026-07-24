@@ -235,6 +235,16 @@ interface PluginProps {
 
 ---
 
+## 백로그 — CollectorRegistry/PipelineRegistry 에러 이력 무제한 누적
+
+**목표:** Phase 6(모니터링 대시보드) 설계 중 자체 검토에서 발견됨. 계속 실패하는 Collector/PipelineStage가 있으면 `_errors` 딕셔너리가 가동 시간에 비례해 무한정 커진다(`PipelineRegistry.run()`은 10Hz `simulation_loop`에서 머신마다 매 tick 호출되므로 실질적 위험이 Phase 2의 `_cache`/`_owner` 사례보다 큼). 항목 캡을 걸면 Phase 6의 diff 기반 실시간 push 메커니즘(리스트 길이를 "지난번 본 개수"와 비교)과 상호작용이 복잡해져(오래된 항목이 잘려나갈 때 인덱스가 어긋남), 이번 스코프에서는 캡 없이 진행.
+
+**착수 조건:** 장시간 가동 + 지속적으로 실패하는 스테이지/Collector가 실제 운영 이슈로 확인되면 착수. 캡을 걸 때는 diff 메커니즘을 위한 별도 단조증가 카운터를 함께 설계해야 함(캡된 저장 리스트와 별개로).
+
+**의존관계:** Phase 6 완료 후 언제든 독립적으로 착수 가능.
+
+---
+
 ## 전체 의존관계 요약
 
 ```
