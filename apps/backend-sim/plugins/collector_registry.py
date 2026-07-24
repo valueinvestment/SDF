@@ -3,6 +3,7 @@ import time
 from dataclasses import dataclass
 from simulator.models import MachineState
 from plugins.contracts import Collector
+from plugins.errors import PluginErrorEntry
 
 
 @dataclass
@@ -18,6 +19,7 @@ class CollectorRegistry:
         self._owner: dict[str, str] = {}
         self._cache: dict[str, _CacheEntry] = {}
         self._tasks: dict[str, asyncio.Task] = {}
+        self._errors: dict[str, list[PluginErrorEntry]] = {}
 
     def register(self, collector: Collector) -> None:
         if collector.id in self._collectors:
@@ -37,6 +39,7 @@ class CollectorRegistry:
             states = await collector.collect()
         except Exception as e:
             print(f"[CollectorRegistry] collector '{collector.id}' collect() failed: {e}", flush=True)
+            self.record_error(collector.id, str(e))
             return
         now = time.time()
         for mid, state in states.items():
@@ -70,3 +73,9 @@ class CollectorRegistry:
         if time.time() - entry.last_success > 3 * entry.poll_interval_sec:
             return entry.state.model_copy(update={"status": "offline"})
         return entry.state
+
+    def record_error(self, id: str, message: str) -> None:
+        self._errors.setdefault(id, []).append(PluginErrorEntry(message=message, ts=time.time()))
+
+    def get_all_errors(self) -> dict[str, list[PluginErrorEntry]]:
+        return dict(self._errors)
