@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest"
+import { describe, it, expect, vi } from "vitest"
 import { render, screen, fireEvent } from "@testing-library/react"
 import { PluginRegistry } from "@sdf/plugin-runtime"
 import { PluginInspectorPanel } from "@/components/PluginInspectorPanel"
@@ -61,11 +61,14 @@ describe("PluginInspectorPanel", () => {
   })
 
   it("renders multiple rejected entries sharing the same attempted id without a key collision", () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {})
     const registry = new PluginRegistry()
     registry.recordRejected("dup", "first attempt failed")
     registry.recordRejected("dup", "second attempt failed")
     render(<PluginInspectorPanel registry={registry} />)
     expect(screen.getByText("first attempt failed")).toBeInTheDocument()
     expect(screen.getByText("second attempt failed")).toBeInTheDocument()
+    expect(errorSpy).not.toHaveBeenCalled()
+    errorSpy.mockRestore()
   })
 })
