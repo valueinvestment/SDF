@@ -75,6 +75,51 @@ export const ${camelName}Plugin: SDFPlugin = {
 `
 }
 
+const IMPORT_LINE_PATTERN = /^import \{ \w+ \} from "@\/plugins\/[^"]+"$/gm
+const TYPE_IMPORT_PATTERN = /^import type \{ SDFPlugin \} from "@sdf\/types"$/m
+const INSTALLED_PLUGINS_ARRAY_PATTERN = /(export const installedPlugins: SDFPlugin\[\] = \[)([^\]]*)(\])/
+
+export function insertPluginImportAndEntry(source, { camelName, id }) {
+  const importLine = `import { ${camelName}Plugin } from "@/plugins/${camelName}Plugin"`
+
+  const pluginImportMatches = [...source.matchAll(IMPORT_LINE_PATTERN)]
+  let withImport
+  if (pluginImportMatches.length > 0) {
+    const last = pluginImportMatches[pluginImportMatches.length - 1]
+    const insertAt = last.index + last[0].length
+    withImport = `${source.slice(0, insertAt)}\n${importLine}${source.slice(insertAt)}`
+  } else {
+    const typeMatch = source.match(TYPE_IMPORT_PATTERN)
+    if (!typeMatch) {
+      throw new Error(
+        `Could not find an import anchor in plugins.ts to insert "${importLine}" after. ` +
+          `Expected either an existing "@/plugins/*" import or the "@sdf/types" import.`,
+      )
+    }
+    const insertAt = typeMatch.index + typeMatch[0].length
+    withImport = `${source.slice(0, insertAt)}\n${importLine}${source.slice(insertAt)}`
+  }
+
+  const arrayMatch = withImport.match(INSTALLED_PLUGINS_ARRAY_PATTERN)
+  if (!arrayMatch) {
+    throw new Error(
+      'Could not find "export const installedPlugins: SDFPlugin[] = [...]" in plugins.ts ' +
+        "to append the new plugin to.",
+    )
+  }
+  const [fullMatch, prefix, body, suffix] = arrayMatch
+  const trimmedBody = body.trim()
+  const newBody = trimmedBody.length === 0 ? `${camelName}Plugin` : `${trimmedBody}, ${camelName}Plugin`
+
+  return (
+    withImport.slice(0, arrayMatch.index) +
+    prefix +
+    newBody +
+    suffix +
+    withImport.slice(arrayMatch.index + fullMatch.length)
+  )
+}
+
 export function renderTestTemplate({ pascalName, camelName }) {
   return `import { describe, it, expect } from "vitest"
 import { render, screen } from "@testing-library/react"
