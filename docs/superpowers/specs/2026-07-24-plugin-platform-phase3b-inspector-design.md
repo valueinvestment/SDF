@@ -37,7 +37,6 @@ export type PluginSummary =
       name: string
       version: string
       description?: string
-      panelIds: string[]
     }
   | {
       status: "rejected"
@@ -47,7 +46,7 @@ export type PluginSummary =
     }
 ```
 
-`panelIds`는 `PluginRegistry`가 이미 들고 있는 `panelComponents` 맵에서 해당 플러그인이 등록에 성공한 패널 id만 뽑아 채운다(별도 배관 불필요).
+**`panelIds`를 포함하지 않기로 결정 (구현 계획 단계에서 발견, 스펙 수정):** 애초 `panelIds: string[]`(플러그인이 등록에 성공한 패널 id 목록)을 포함하려 했으나, `PluginRegistry.registerPanelComponent(panelId, component)`는 panel id만 받을 뿐 "어느 플러그인이 등록했는지"는 모른다. 현재 아키텍처는 모든 플러그인이 `pluginBootstrap.ts`에서 만들어진 **단일 공유 `PluginContext`**를 통해 활성화되므로, `registerPanel` 호출 시점에 호출 주체 플러그인을 알아낼 방법이 없다. 이를 알아내려면 플러그인별로 별도 `PluginContext`를 만들어 `pluginId`를 클로저로 묶어야 하는데(`createPluginContext`/`loadPlugins` 시그니처 변경 필요), 이는 Phase 3b 스코프 대비 과도하게 침습적이다. 게다가 id 충돌 진단이라는 원래 목적은 에러 메시지 자체(`"panel id already registered: X"`)에 충돌 id가 이미 포함되므로 `panelIds` 없이도 충족된다. `ruleCount`/`metricCount`를 뺀 것과 같은 논리로 제외.
 
 ## 3. `PluginRegistry` API 확장
 
@@ -125,7 +124,7 @@ function recordActivateError(pluginId: string, err: unknown) {
 - **기본 visible:** `process.env.NODE_ENV !== "production"`. 사용자가 `LayoutManager`에서 언제든 수동으로 켜고 끄는 것은 이 기본값과 무관하게 항상 가능.
 - **데이터 소스:** `pluginRegistry.list()` / `pluginRegistry.getAllErrors()`를 직접 호출한 정적 스냅샷. 플러그인은 부팅 시 1회만 등록되므로 Zustand 구독이나 폴링은 불필요(과설계 방지).
 - **표시 내용:**
-  - `active` 플러그인 카드: id / name / version / description / `panelIds`, 에러 이력이 있으면 kind별 배지 + message + 상대 시각.
+  - `active` 플러그인 카드: id / name / version / description, 에러 이력이 있으면 kind별 배지 + message + 상대 시각.
   - `rejected` 항목 카드: 시도한 id + 실패 사유 + 시각.
   - 에러가 없는 플러그인은 에러 배지 없이 기본 정보만 — 별도 "empty state" UI 불필요.
 - **비동기 활성화 실패에 대한 신선도(freshness) 처리:** 비동기 `activate()`의 reject는 Inspector 패널이 마운트된 이후에 도착할 수 있어(정적 스냅샷은 그 시점 이후의 에러를 반영하지 못함), 패널에 수동 "새로고침" 버튼을 두어 클릭 시 `list()`/`getAllErrors()`를 다시 읽어 로컬 state를 갱신한다. 구독/폴링 시스템을 새로 만들 정도의 가치는 없다고 판단(개발 전용 진단 도구이고, 대부분의 `activate()`는 마운트 이전에 이미 정착됨) — 하지만 아예 갱신 수단이 없는 것은 실사용 시 혼란을 줄 수 있어 최소한의 수동 갱신만 추가.
