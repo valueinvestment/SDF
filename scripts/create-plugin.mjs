@@ -230,6 +230,10 @@ export async function runCreatePlugin({ name, hostTwinDir }) {
   try {
     await writeFile(testFile, renderTestTemplate({ pascalName, camelName }), { encoding: "utf8", flag: "wx" })
   } catch (err) {
+    // The plugin file was already written successfully above — roll it back so a
+    // failure here (e.g. a stale test file left over from an unrelated prior run)
+    // doesn't leave an orphaned, unregistered plugin file behind.
+    await unlink(pluginFile).catch(() => {})
     if (err.code === "EEXIST") throw new Error(`${testFile} already exists`)
     throw err
   }

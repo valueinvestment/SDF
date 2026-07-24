@@ -2,7 +2,7 @@ import { test } from "node:test"
 import assert from "node:assert/strict"
 import { validatePluginName, deriveNames, renderPanelTemplate, renderTestTemplate } from "../create-plugin.mjs"
 import { insertPluginImportAndEntry } from "../create-plugin.mjs"
-import { mkdtemp, mkdir, writeFile, rm } from "node:fs/promises"
+import { mkdtemp, mkdir, writeFile, rm, access } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import path from "node:path"
 import { collectExistingPanelIds } from "../create-plugin.mjs"
@@ -325,6 +325,27 @@ test("runCreatePlugin refuses to overwrite an existing plugin file", async () =>
       () => runCreatePlugin({ name: "sensor-heatmap", hostTwinDir: dir }),
       /already exists/,
     )
+  } finally {
+    await rm(dir, { recursive: true, force: true })
+  }
+})
+
+test("runCreatePlugin rolls back the plugin file if the test file write fails", async () => {
+  const dir = await makeFixtureHostTwinDir()
+  try {
+    // Simulate a stale test file left over with no matching plugin file.
+    await mkdir(path.join(dir, "plugins", "__tests__"), { recursive: true })
+    await writeFile(path.join(dir, "plugins", "__tests__", "sensorHeatmapPlugin.test.tsx"), "stale", "utf8")
+
+    await assert.rejects(
+      () => runCreatePlugin({ name: "sensor-heatmap", hostTwinDir: dir }),
+      /already exists/,
+    )
+
+    const pluginFileStillExists = await access(path.join(dir, "plugins", "sensorHeatmapPlugin.tsx"))
+      .then(() => true)
+      .catch(() => false)
+    assert.equal(pluginFileStillExists, false)
   } finally {
     await rm(dir, { recursive: true, force: true })
   }
