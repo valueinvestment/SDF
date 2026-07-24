@@ -122,4 +122,15 @@ describe("PluginRegistry — introspection", () => {
       new Map([["demo", [{ kind: "activate_failed", message: "boom", ts: 123 }]]]),
     )
   })
+
+  it("accumulates multiple recordError() calls for the same plugin", () => {
+    const registry = new PluginRegistry()
+    registry.register(makePlugin("demo"))
+    registry.recordError("demo", { kind: "activate_failed", message: "first", ts: 1 })
+    registry.recordError("demo", { kind: "activate_failed", message: "second", ts: 2 })
+    expect(registry.getErrors("demo")).toEqual([
+      { kind: "activate_failed", message: "first", ts: 1 },
+      { kind: "activate_failed", message: "second", ts: 2 },
+    ])
+  })
 })

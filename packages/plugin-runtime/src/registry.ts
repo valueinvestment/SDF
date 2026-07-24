@@ -75,11 +75,11 @@ export class PluginRegistry {
   }
 
   getErrors(id: string): PluginError[] {
-    return this.errors.get(id) ?? []
+    return [...(this.errors.get(id) ?? [])]
   }
 
   getAllErrors(): Map<string, PluginError[]> {
-    return new Map(this.errors)
+    return new Map(Array.from(this.errors, ([id, list]) => [id, [...list]]))
   }
 
   list(): PluginSummary[] {
