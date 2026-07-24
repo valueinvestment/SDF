@@ -2,6 +2,10 @@ import { test } from "node:test"
 import assert from "node:assert/strict"
 import { validatePluginName, deriveNames, renderPanelTemplate, renderTestTemplate } from "../create-plugin.mjs"
 import { insertPluginImportAndEntry } from "../create-plugin.mjs"
+import { mkdtemp, mkdir, writeFile, rm } from "node:fs/promises"
+import { tmpdir } from "node:os"
+import path from "node:path"
+import { collectExistingPanelIds } from "../create-plugin.mjs"
 
 test("validatePluginName accepts a valid kebab-case name", () => {
   assert.doesNotThrow(() => validatePluginName("sensor-heatmap"))
@@ -139,4 +143,48 @@ test("insertPluginImportAndEntry throws when no import anchor can be found", () 
     () => insertPluginImportAndEntry(sourceWithNoAnchors, { camelName: "x", id: "x" }),
     /Could not find an import anchor/,
   )
+})
+
+async function makeFixtureHostTwinDir() {
+  const dir = await mkdtemp(path.join(tmpdir(), "create-plugin-test-"))
+  await mkdir(path.join(dir, "plugins"), { recursive: true })
+  await mkdir(path.join(dir, "lib"), { recursive: true })
+  await writeFile(
+    path.join(dir, "lib", "plugins.ts"),
+    `import type { SDFPlugin } from "@sdf/types"
+import { sensorChartPlugin } from "@/plugins/sensorChartPlugin"
+
+export const installedPlugins: SDFPlugin[] = [sensorChartPlugin]
+`,
+    "utf8",
+  )
+  await writeFile(
+    path.join(dir, "plugins", "sensorChartPlugin.tsx"),
+    `export const sensorChartPlugin = {
+  id: "example-sensor-chart",
+  activate: (ctx) => {
+    ctx.registerPanel({ id: "example-sensor-chart-panel", label: "x", component: () => null })
+  },
+}
+`,
+    "utf8",
+  )
+  return dir
+}
+
+test("collectExistingPanelIds includes built-in ids and ids scanned from installed plugin files", async () => {
+  const dir = await makeFixtureHostTwinDir()
+  try {
+    const ids = await collectExistingPanelIds(dir)
+    assert.ok(ids.has("canvas"))
+    assert.ok(ids.has("charts"))
+    assert.ok(ids.has("agent"))
+    assert.ok(ids.has("detail"))
+    assert.ok(ids.has("rules"))
+    assert.ok(ids.has("mes"))
+    assert.ok(ids.has("example-sensor-chart-panel"))
+    assert.equal(ids.has("some-other-panel"), false)
+  } finally {
+    await rm(dir, { recursive: true, force: true })
+  }
 })

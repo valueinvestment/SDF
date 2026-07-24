@@ -1,3 +1,6 @@
+import { readFile } from "node:fs/promises"
+import path from "node:path"
+
 const NAME_PATTERN = /^[a-z][a-z0-9-]*$/
 
 export function validatePluginName(name) {
@@ -149,4 +152,30 @@ describe("${pascalName}Panel", () => {
   })
 })
 `
+}
+
+// Keep in sync with apps/host-twin/store/factoryStore.ts's BUILT_IN_PANEL_IDS.
+// Note: since every generated panel id carries a "-panel" suffix (see deriveNames),
+// it can never literally equal one of these bare built-in ids — this set is
+// defense in depth (e.g. if the suffix convention changes later), not something
+// runCreatePlugin's tests can exercise directly today.
+const BUILT_IN_PANEL_IDS = new Set(["canvas", "charts", "agent", "detail", "rules", "mes"])
+
+const PLUGIN_IMPORT_MODULE_PATTERN = /from ["']@\/plugins\/([^"']+)["']/g
+const REGISTER_PANEL_ID_PATTERN = /registerPanel\(\{\s*id:\s*["']([^"']+)["']/g
+
+export async function collectExistingPanelIds(hostTwinDir) {
+  const ids = new Set(BUILT_IN_PANEL_IDS)
+  const pluginsTsFile = path.join(hostTwinDir, "lib", "plugins.ts")
+  const source = await readFile(pluginsTsFile, "utf8")
+
+  const moduleNames = [...source.matchAll(PLUGIN_IMPORT_MODULE_PATTERN)].map((match) => match[1])
+  for (const moduleName of moduleNames) {
+    const filePath = path.join(hostTwinDir, "plugins", `${moduleName}.tsx`)
+    const fileSource = await readFile(filePath, "utf8")
+    for (const match of fileSource.matchAll(REGISTER_PANEL_ID_PATTERN)) {
+      ids.add(match[1])
+    }
+  }
+  return ids
 }
