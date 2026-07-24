@@ -16,6 +16,7 @@ import { MachineDetailPanel } from "@/components/MachineDetailPanel"
 import { RobotDetailPanel } from "@/components/RobotDetailPanel"
 import { RuleEditorPanel } from "@/components/RuleEditorPanel"
 import { MesReroutingViewer } from "@/components/MesReroutingViewer"
+import { PluginInspectorPanel } from "@/components/PluginInspectorPanel"
 import { DashboardErrorBoundary } from "@sdf/ui"
 import { LayoutControlBar, LayoutGrid } from "@/components/LayoutManager"
 import { useFactoryStore } from "@/store/factoryStore"
@@ -41,11 +42,13 @@ export default function Home() {
   useRuleEngine({ onMeshOverlay: applyMeshOverlay })
   const { exportToFile, importFromFile } = useConfigSync()
 
+  const [editingLayout, setEditingLayout] = useState(false)
+  const [pluginsReady, setPluginsReady] = useState(false)
+
   useEffect(() => {
     bootstrapPlugins()
+    setPluginsReady(true)
   }, [])
-
-  const [editingLayout, setEditingLayout] = useState(false)
 
   const selectedId = useFactoryStore((s) => s.selectedEntityId)
   const placedEntities = useFactoryStore((s) => s.placedEntities)
@@ -109,6 +112,12 @@ export default function Home() {
     mes: (
       <DashboardErrorBoundary label="MES 이관 모니터">
         <MesReroutingViewer />
+      </DashboardErrorBoundary>
+    ),
+
+    inspector: (
+      <DashboardErrorBoundary label="플러그인 인스펙터">
+        <PluginInspectorPanel key={pluginsReady ? "ready" : "loading"} registry={pluginRegistry} />
       </DashboardErrorBoundary>
     ),
 

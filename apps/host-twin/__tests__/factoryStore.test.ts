@@ -1,5 +1,6 @@
-import { describe, it, expect, beforeEach } from "vitest"
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest"
 import { useFactoryStore } from "@/store/factoryStore"
+import { PluginPanelConflictError } from "@sdf/plugin-runtime"
 
 beforeEach(() => {
   useFactoryStore.setState({
@@ -232,6 +233,41 @@ describe("registerPluginPanel", () => {
   it("throws when the id collides with a built-in panel", () => {
     expect(() => useFactoryStore.getState().registerPluginPanel("canvas", "충돌")).toThrow(
       /내장 패널 id와 충돌/,
+    )
+  })
+
+  it("throws specifically a PluginPanelConflictError (not a plain Error) on built-in id collision", () => {
+    expect(() => useFactoryStore.getState().registerPluginPanel("canvas", "충돌")).toThrow(
+      PluginPanelConflictError,
+    )
+  })
+})
+
+describe("inspector built-in panel", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs()
+    vi.resetModules()
+  })
+
+  it("is hidden by default when NODE_ENV is production", async () => {
+    vi.stubEnv("NODE_ENV", "production")
+    vi.resetModules()
+    const { useFactoryStore: freshStore } = await import("@/store/factoryStore")
+    const panel = freshStore.getState().layoutConfig.panels.find((p) => p.id === "inspector")
+    expect(panel?.visible).toBe(false)
+  })
+
+  it("is visible by default when NODE_ENV is not production", async () => {
+    vi.stubEnv("NODE_ENV", "development")
+    vi.resetModules()
+    const { useFactoryStore: freshStore } = await import("@/store/factoryStore")
+    const panel = freshStore.getState().layoutConfig.panels.find((p) => p.id === "inspector")
+    expect(panel?.visible).toBe(true)
+  })
+
+  it("rejects plugin attempts to register the 'inspector' id", () => {
+    expect(() => useFactoryStore.getState().registerPluginPanel("inspector", "충돌")).toThrow(
+      PluginPanelConflictError,
     )
   })
 })

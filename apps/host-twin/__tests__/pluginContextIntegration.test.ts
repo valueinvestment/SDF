@@ -95,4 +95,22 @@ describe("plugin context integration (real factoryStore)", () => {
     const props = createPluginProps(createHostBindings())
     expect(registry.getPanelComponents(props)).not.toHaveProperty("canvas")
   })
+
+  it("records a panel_id_conflict error when a plugin's panel id collides with a built-in panel", () => {
+    vi.spyOn(console, "error").mockImplementation(() => {})
+    const registry = new PluginRegistry()
+    const ctx = createPluginContext(registry, createHostBindings())
+    const plugin: SDFPlugin = {
+      id: "built-in-collider",
+      name: "BuiltInCollider",
+      version: "0.1.0",
+      activate: (ctx) => {
+        ctx.registerPanel({ id: "canvas", label: "충돌", component: () => null })
+      },
+    }
+    loadPlugins(registry, [plugin], ctx)
+    expect(registry.getErrors("built-in-collider")).toEqual([
+      { kind: "panel_id_conflict", message: expect.stringMatching(/canvas.*내장 패널 id와 충돌/), ts: expect.any(Number) },
+    ])
+  })
 })
