@@ -6,6 +6,8 @@ import { mkdtemp, mkdir, writeFile, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import path from "node:path"
 import { collectExistingPanelIds } from "../create-plugin.mjs"
+import { readFile as readFileForAssertions } from "node:fs/promises"
+import { runCreatePlugin } from "../create-plugin.mjs"
 
 test("validatePluginName accepts a valid kebab-case name", () => {
   assert.doesNotThrow(() => validatePluginName("sensor-heatmap"))
@@ -279,6 +281,55 @@ export const installedPlugins: SDFPlugin[] = [ghostPlugin]
       "utf8",
     )
     await assert.rejects(() => collectExistingPanelIds(dir), /ghostPlugin.*could not be read|file not found/)
+  } finally {
+    await rm(dir, { recursive: true, force: true })
+  }
+})
+
+test("runCreatePlugin creates the panel file, test file, and updates plugins.ts", async () => {
+  const dir = await makeFixtureHostTwinDir()
+  try {
+    const result = await runCreatePlugin({ name: "sensor-heatmap", hostTwinDir: dir })
+
+    const panelSource = await readFileForAssertions(result.pluginFile, "utf8")
+    assert.match(panelSource, /export const sensorHeatmapPlugin: SDFPlugin = \{/)
+
+    const testSource = await readFileForAssertions(result.testFile, "utf8")
+    assert.match(testSource, /describe\("SensorHeatmapPanel", \(\) => \{/)
+
+    const pluginsTsSource = await readFileForAssertions(result.pluginsTsFile, "utf8")
+    assert.match(pluginsTsSource, /import \{ sensorHeatmapPlugin \} from "@\/plugins\/sensorHeatmapPlugin"/)
+    assert.match(
+      pluginsTsSource,
+      /export const installedPlugins: SDFPlugin\[\] = \[sensorChartPlugin, sensorHeatmapPlugin\]/,
+    )
+  } finally {
+    await rm(dir, { recursive: true, force: true })
+  }
+})
+
+test("runCreatePlugin refuses to overwrite an existing plugin file", async () => {
+  const dir = await makeFixtureHostTwinDir()
+  try {
+    await runCreatePlugin({ name: "sensor-heatmap", hostTwinDir: dir })
+    await assert.rejects(
+      () => runCreatePlugin({ name: "sensor-heatmap", hostTwinDir: dir }),
+      /already exists/,
+    )
+  } finally {
+    await rm(dir, { recursive: true, force: true })
+  }
+})
+
+test("runCreatePlugin refuses a name that collides with an existing panel id", async () => {
+  const dir = await makeFixtureHostTwinDir()
+  try {
+    // "example-sensor-chart" derives panelId "example-sensor-chart-panel",
+    // which the fixture's sensorChartPlugin.tsx already registers.
+    await assert.rejects(
+      () => runCreatePlugin({ name: "example-sensor-chart", hostTwinDir: dir }),
+      /already registered/,
+    )
   } finally {
     await rm(dir, { recursive: true, force: true })
   }

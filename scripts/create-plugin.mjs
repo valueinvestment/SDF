@@ -1,4 +1,4 @@
-import { readFile } from "node:fs/promises"
+import { readFile, writeFile, mkdir, access } from "node:fs/promises"
 import path from "node:path"
 
 const NAME_PATTERN = /^[a-z][a-z0-9-]*$/
@@ -191,4 +191,49 @@ export async function collectExistingPanelIds(hostTwinDir) {
     }
   }
   return ids
+}
+
+async function fileExists(filePath) {
+  try {
+    await access(filePath)
+    return true
+  } catch {
+    return false
+  }
+}
+
+export async function runCreatePlugin({ name, hostTwinDir }) {
+  const { id, panelId, pascalName, camelName } = deriveNames(name)
+
+  const pluginsDir = path.join(hostTwinDir, "plugins")
+  const testsDir = path.join(pluginsDir, "__tests__")
+  const pluginFile = path.join(pluginsDir, `${camelName}Plugin.tsx`)
+  const testFile = path.join(testsDir, `${camelName}Plugin.test.tsx`)
+  const pluginsTsFile = path.join(hostTwinDir, "lib", "plugins.ts")
+
+  if (await fileExists(pluginFile)) {
+    throw new Error(`${pluginFile} already exists`)
+  }
+  if (await fileExists(testFile)) {
+    throw new Error(`${testFile} already exists`)
+  }
+
+  const existingIds = await collectExistingPanelIds(hostTwinDir)
+  if (existingIds.has(panelId)) {
+    throw new Error(
+      `Panel id "${panelId}" is already registered (built-in panel or an installed plugin). ` +
+        "Choose a different name.",
+    )
+  }
+
+  const pluginsTsSource = await readFile(pluginsTsFile, "utf8")
+  const updatedPluginsTsSource = insertPluginImportAndEntry(pluginsTsSource, { camelName, id })
+
+  await mkdir(pluginsDir, { recursive: true })
+  await mkdir(testsDir, { recursive: true })
+  await writeFile(pluginFile, renderPanelTemplate({ pascalName, camelName, id, panelId }), "utf8")
+  await writeFile(testFile, renderTestTemplate({ pascalName, camelName }), "utf8")
+  await writeFile(pluginsTsFile, updatedPluginsTsSource, "utf8")
+
+  return { pluginFile, testFile, pluginsTsFile }
 }
