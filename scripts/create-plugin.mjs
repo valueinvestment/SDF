@@ -1,4 +1,4 @@
-import { readFile, writeFile, mkdir, access } from "node:fs/promises"
+import { readFile, writeFile, mkdir, unlink } from "node:fs/promises"
 import path from "node:path"
 
 const NAME_PATTERN = /^[a-z][a-z0-9-]*$/
@@ -171,7 +171,15 @@ const REGISTER_PANEL_ID_PATTERN = /registerPanel\(\{\s*id:\s*["']([^"']+)["']/g
 export async function collectExistingPanelIds(hostTwinDir) {
   const ids = new Set(BUILT_IN_PANEL_IDS)
   const pluginsTsFile = path.join(hostTwinDir, "lib", "plugins.ts")
-  const source = await readFile(pluginsTsFile, "utf8")
+  let source
+  try {
+    source = await readFile(pluginsTsFile, "utf8")
+  } catch (err) {
+    throw new Error(
+      `Could not read ${pluginsTsFile} (${err.code === "ENOENT" ? "file not found" : err.message}). ` +
+        "Check that hostTwinDir points at a valid apps/host-twin directory.",
+    )
+  }
 
   const moduleNames = [...source.matchAll(PLUGIN_IMPORT_MODULE_PATTERN)].map((match) => match[1])
   for (const moduleName of moduleNames) {
@@ -193,15 +201,6 @@ export async function collectExistingPanelIds(hostTwinDir) {
   return ids
 }
 
-async function fileExists(filePath) {
-  try {
-    await access(filePath)
-    return true
-  } catch {
-    return false
-  }
-}
-
 export async function runCreatePlugin({ name, hostTwinDir }) {
   const { id, panelId, pascalName, camelName } = deriveNames(name)
 
@@ -211,15 +210,36 @@ export async function runCreatePlugin({ name, hostTwinDir }) {
   const testFile = path.join(testsDir, `${camelName}Plugin.test.tsx`)
   const pluginsTsFile = path.join(hostTwinDir, "lib", "plugins.ts")
 
-  if (await fileExists(pluginFile)) {
-    throw new Error(`${pluginFile} already exists`)
+  await mkdir(pluginsDir, { recursive: true })
+  await mkdir(testsDir, { recursive: true })
+
+  // The plugin/test files are created via exclusive ("wx") writes first — this is the
+  // actual TOCTOU-safe guard against overwriting an existing file. Running it before the
+  // panel-id collision check also means re-running the CLI for a name that was already
+  // used reports the more specific "already exists" error rather than a "panel id already
+  // registered" error caused by the earlier run's own registration.
+  try {
+    await writeFile(pluginFile, renderPanelTemplate({ pascalName, camelName, id, panelId }), {
+      encoding: "utf8",
+      flag: "wx",
+    })
+  } catch (err) {
+    if (err.code === "EEXIST") throw new Error(`${pluginFile} already exists`)
+    throw err
   }
-  if (await fileExists(testFile)) {
-    throw new Error(`${testFile} already exists`)
+  try {
+    await writeFile(testFile, renderTestTemplate({ pascalName, camelName }), { encoding: "utf8", flag: "wx" })
+  } catch (err) {
+    if (err.code === "EEXIST") throw new Error(`${testFile} already exists`)
+    throw err
   }
 
   const existingIds = await collectExistingPanelIds(hostTwinDir)
   if (existingIds.has(panelId)) {
+    // Roll back the files we just created so a collision doesn't leave orphaned,
+    // un-registered plugin files behind.
+    await unlink(pluginFile).catch(() => {})
+    await unlink(testFile).catch(() => {})
     throw new Error(
       `Panel id "${panelId}" is already registered (built-in panel or an installed plugin). ` +
         "Choose a different name.",
@@ -228,11 +248,6 @@ export async function runCreatePlugin({ name, hostTwinDir }) {
 
   const pluginsTsSource = await readFile(pluginsTsFile, "utf8")
   const updatedPluginsTsSource = insertPluginImportAndEntry(pluginsTsSource, { camelName, id })
-
-  await mkdir(pluginsDir, { recursive: true })
-  await mkdir(testsDir, { recursive: true })
-  await writeFile(pluginFile, renderPanelTemplate({ pascalName, camelName, id, panelId }), "utf8")
-  await writeFile(testFile, renderTestTemplate({ pascalName, camelName }), "utf8")
   await writeFile(pluginsTsFile, updatedPluginsTsSource, "utf8")
 
   return { pluginFile, testFile, pluginsTsFile }

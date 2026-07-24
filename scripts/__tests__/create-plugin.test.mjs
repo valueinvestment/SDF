@@ -286,6 +286,15 @@ export const installedPlugins: SDFPlugin[] = [ghostPlugin]
   }
 })
 
+test("collectExistingPanelIds throws a clear error when hostTwinDir has no lib/plugins.ts", async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), "create-plugin-test-"))
+  try {
+    await assert.rejects(() => collectExistingPanelIds(dir), /Could not read.*plugins\.ts|file not found/)
+  } finally {
+    await rm(dir, { recursive: true, force: true })
+  }
+})
+
 test("runCreatePlugin creates the panel file, test file, and updates plugins.ts", async () => {
   const dir = await makeFixtureHostTwinDir()
   try {
