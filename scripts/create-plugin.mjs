@@ -251,9 +251,19 @@ export async function runCreatePlugin({ name, hostTwinDir }) {
     )
   }
 
-  const pluginsTsSource = await readFile(pluginsTsFile, "utf8")
-  const updatedPluginsTsSource = insertPluginImportAndEntry(pluginsTsSource, { camelName, id })
-  await writeFile(pluginsTsFile, updatedPluginsTsSource, "utf8")
+  try {
+    const pluginsTsSource = await readFile(pluginsTsFile, "utf8")
+    const updatedPluginsTsSource = insertPluginImportAndEntry(pluginsTsSource, { camelName, id })
+    await writeFile(pluginsTsFile, updatedPluginsTsSource, "utf8")
+  } catch (err) {
+    // The plugin/test files were already written successfully above — roll them back
+    // so a failure while updating plugins.ts (e.g. it was hand-edited into a shape
+    // insertPluginImportAndEntry doesn't recognize) doesn't leave orphaned,
+    // unregistered scaffold files behind with a misleading "nothing happened" error.
+    await unlink(pluginFile).catch(() => {})
+    await unlink(testFile).catch(() => {})
+    throw new Error(`${err.message} (the generated plugin/test files were rolled back)`)
+  }
 
   return { pluginFile, testFile, pluginsTsFile }
 }

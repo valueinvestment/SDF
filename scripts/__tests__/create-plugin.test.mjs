@@ -360,6 +360,37 @@ test("runCreatePlugin refuses a name that collides with an existing panel id", a
       () => runCreatePlugin({ name: "example-sensor-chart", hostTwinDir: dir }),
       /already registered/,
     )
+    const pluginFileExists = await access(path.join(dir, "plugins", "exampleSensorChartPlugin.tsx"))
+      .then(() => true)
+      .catch(() => false)
+    assert.equal(pluginFileExists, false)
+  } finally {
+    await rm(dir, { recursive: true, force: true })
+  }
+})
+
+test("runCreatePlugin rolls back plugin/test files if updating plugins.ts fails", async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), "create-plugin-test-"))
+  try {
+    await mkdir(path.join(dir, "plugins"), { recursive: true })
+    await mkdir(path.join(dir, "lib"), { recursive: true })
+    // A plugins.ts shape insertPluginImportAndEntry can't recognize (no
+    // installedPlugins array declaration at all).
+    await writeFile(path.join(dir, "lib", "plugins.ts"), "export const somethingElse = []\n", "utf8")
+
+    await assert.rejects(
+      () => runCreatePlugin({ name: "sensor-heatmap", hostTwinDir: dir }),
+      /rolled back/,
+    )
+
+    const pluginFileExists = await access(path.join(dir, "plugins", "sensorHeatmapPlugin.tsx"))
+      .then(() => true)
+      .catch(() => false)
+    const testFileExists = await access(path.join(dir, "plugins", "__tests__", "sensorHeatmapPlugin.test.tsx"))
+      .then(() => true)
+      .catch(() => false)
+    assert.equal(pluginFileExists, false)
+    assert.equal(testFileExists, false)
   } finally {
     await rm(dir, { recursive: true, force: true })
   }
