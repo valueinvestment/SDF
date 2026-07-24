@@ -188,3 +188,98 @@ test("collectExistingPanelIds includes built-in ids and ids scanned from install
     await rm(dir, { recursive: true, force: true })
   }
 })
+
+test("collectExistingPanelIds scans multiple installed plugin files", async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), "create-plugin-test-"))
+  try {
+    await mkdir(path.join(dir, "plugins"), { recursive: true })
+    await mkdir(path.join(dir, "lib"), { recursive: true })
+    await writeFile(
+      path.join(dir, "lib", "plugins.ts"),
+      `import type { SDFPlugin } from "@sdf/types"
+import { sensorChartPlugin } from "@/plugins/sensorChartPlugin"
+import { alertLogPlugin } from "@/plugins/alertLogPlugin"
+
+export const installedPlugins: SDFPlugin[] = [sensorChartPlugin, alertLogPlugin]
+`,
+      "utf8",
+    )
+    await writeFile(
+      path.join(dir, "plugins", "sensorChartPlugin.tsx"),
+      `export const sensorChartPlugin = {
+  activate: (ctx) => {
+    ctx.registerPanel({ id: "example-sensor-chart-panel", label: "x", component: () => null })
+  },
+}
+`,
+      "utf8",
+    )
+    await writeFile(
+      path.join(dir, "plugins", "alertLogPlugin.tsx"),
+      `export const alertLogPlugin = {
+  activate: (ctx) => {
+    ctx.registerPanel({ id: "example-alert-log-panel", label: "x", component: () => null })
+  },
+}
+`,
+      "utf8",
+    )
+    const ids = await collectExistingPanelIds(dir)
+    assert.ok(ids.has("example-sensor-chart-panel"))
+    assert.ok(ids.has("example-alert-log-panel"))
+  } finally {
+    await rm(dir, { recursive: true, force: true })
+  }
+})
+
+test("collectExistingPanelIds handles a plugin file with zero registerPanel calls", async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), "create-plugin-test-"))
+  try {
+    await mkdir(path.join(dir, "plugins"), { recursive: true })
+    await mkdir(path.join(dir, "lib"), { recursive: true })
+    await writeFile(
+      path.join(dir, "lib", "plugins.ts"),
+      `import type { SDFPlugin } from "@sdf/types"
+import { ruleOnlyPlugin } from "@/plugins/ruleOnlyPlugin"
+
+export const installedPlugins: SDFPlugin[] = [ruleOnlyPlugin]
+`,
+      "utf8",
+    )
+    await writeFile(
+      path.join(dir, "plugins", "ruleOnlyPlugin.tsx"),
+      `export const ruleOnlyPlugin = {
+  activate: (ctx) => {
+    ctx.addRule({})
+  },
+}
+`,
+      "utf8",
+    )
+    const ids = await collectExistingPanelIds(dir)
+    assert.ok(ids.has("canvas"))
+    assert.equal(ids.has("undefined"), false)
+  } finally {
+    await rm(dir, { recursive: true, force: true })
+  }
+})
+
+test("collectExistingPanelIds throws a clear error when an imported plugin file is missing", async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), "create-plugin-test-"))
+  try {
+    await mkdir(path.join(dir, "plugins"), { recursive: true })
+    await mkdir(path.join(dir, "lib"), { recursive: true })
+    await writeFile(
+      path.join(dir, "lib", "plugins.ts"),
+      `import type { SDFPlugin } from "@sdf/types"
+import { ghostPlugin } from "@/plugins/ghostPlugin"
+
+export const installedPlugins: SDFPlugin[] = [ghostPlugin]
+`,
+      "utf8",
+    )
+    await assert.rejects(() => collectExistingPanelIds(dir), /ghostPlugin.*could not be read|file not found/)
+  } finally {
+    await rm(dir, { recursive: true, force: true })
+  }
+})

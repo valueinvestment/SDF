@@ -162,6 +162,10 @@ describe("${pascalName}Panel", () => {
 const BUILT_IN_PANEL_IDS = new Set(["canvas", "charts", "agent", "detail", "rules", "mes"])
 
 const PLUGIN_IMPORT_MODULE_PATTERN = /from ["']@\/plugins\/([^"']+)["']/g
+// Assumes `id` is the first property in an inline `registerPanel({ id: "...", ... })`
+// call, matching this generator's own template output and both existing example
+// plugins' style — a hand-written plugin using a different property order or a
+// variable-based panel config would not be detected by this scan.
 const REGISTER_PANEL_ID_PATTERN = /registerPanel\(\{\s*id:\s*["']([^"']+)["']/g
 
 export async function collectExistingPanelIds(hostTwinDir) {
@@ -172,7 +176,16 @@ export async function collectExistingPanelIds(hostTwinDir) {
   const moduleNames = [...source.matchAll(PLUGIN_IMPORT_MODULE_PATTERN)].map((match) => match[1])
   for (const moduleName of moduleNames) {
     const filePath = path.join(hostTwinDir, "plugins", `${moduleName}.tsx`)
-    const fileSource = await readFile(filePath, "utf8")
+    let fileSource
+    try {
+      fileSource = await readFile(filePath, "utf8")
+    } catch (err) {
+      throw new Error(
+        `plugins.ts imports "@/plugins/${moduleName}" but ${filePath} could not be read ` +
+          `(${err.code === "ENOENT" ? "file not found" : err.message}). ` +
+          "Check for a stale or commented-out import in plugins.ts.",
+      )
+    }
     for (const match of fileSource.matchAll(REGISTER_PANEL_ID_PATTERN)) {
       ids.add(match[1])
     }
