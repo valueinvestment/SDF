@@ -42,11 +42,13 @@ export default function Home() {
   useRuleEngine({ onMeshOverlay: applyMeshOverlay })
   const { exportToFile, importFromFile } = useConfigSync()
 
+  const [editingLayout, setEditingLayout] = useState(false)
+  const [pluginsReady, setPluginsReady] = useState(false)
+
   useEffect(() => {
     bootstrapPlugins()
+    setPluginsReady(true)
   }, [])
-
-  const [editingLayout, setEditingLayout] = useState(false)
 
   const selectedId = useFactoryStore((s) => s.selectedEntityId)
   const placedEntities = useFactoryStore((s) => s.placedEntities)
@@ -115,7 +117,7 @@ export default function Home() {
 
     inspector: (
       <DashboardErrorBoundary label="플러그인 인스펙터">
-        <PluginInspectorPanel registry={pluginRegistry} />
+        <PluginInspectorPanel key={pluginsReady ? "ready" : "loading"} registry={pluginRegistry} />
       </DashboardErrorBoundary>
     ),
 
