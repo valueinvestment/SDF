@@ -3,6 +3,7 @@
 import {
   PluginRegistry,
   createPluginContext,
+  createPluginProps,
   loadPlugins,
   type PluginContextBindings,
 } from "@sdf/plugin-runtime"
@@ -43,7 +44,9 @@ export function createHostBindings(): PluginContextBindings {
   }
 }
 
-const pluginContext = createPluginContext(pluginRegistry, createHostBindings())
+const hostBindings = createHostBindings()
+const pluginContext = createPluginContext(pluginRegistry, hostBindings)
+export const pluginProps = createPluginProps(hostBindings)
 
 // React 18 StrictMode double-invokes effects in dev — guard so bootstrapPlugins()
 // only runs once per page load (PluginRegistry.register() would otherwise throw

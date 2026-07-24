@@ -1,6 +1,13 @@
 import { describe, it, expect, vi } from "vitest"
+import { createElement } from "react"
+import { render, screen } from "@testing-library/react"
 import { PluginRegistry } from "../registry"
-import { createPluginContext } from "../context"
+import { createPluginContext, createPluginProps } from "../context"
+import type { PluginProps } from "@sdf/types"
+
+const fakeProps: PluginProps = {
+  useStoreSlice: (selector) => selector(undefined),
+}
 
 function makeBindings() {
   return {
@@ -42,7 +49,7 @@ describe("createPluginContext", () => {
     const registry = new PluginRegistry()
     const ctx = createPluginContext(registry, bindings)
     ctx.registerPanel({ id: "p1", label: "Panel 1", component: () => "hi" })
-    expect(registry.getPanelComponents()).toHaveProperty("p1")
+    expect(registry.getPanelComponents(fakeProps)).toHaveProperty("p1")
     expect(bindings.registerPanelPosition).toHaveBeenCalledWith("p1", "Panel 1", undefined)
   })
 
@@ -71,6 +78,29 @@ describe("createPluginContext", () => {
     ).toThrow()
 
     expect(registerPanelComponentSpy).not.toHaveBeenCalled()
-    expect(registry.getPanelComponents()).not.toHaveProperty("canvas")
+    expect(registry.getPanelComponents(fakeProps)).not.toHaveProperty("canvas")
+  })
+})
+
+describe("createPluginProps", () => {
+  it("exposes exactly the useStoreSlice key", () => {
+    const props = createPluginProps(makeBindings())
+    expect(Object.keys(props)).toEqual(["useStoreSlice"])
+  })
+
+  it("useStoreSlice reads the selected slice from bindings.getReadOnlyState", () => {
+    const bindings = makeBindings()
+    bindings.getReadOnlyState = vi.fn(() => ({ machines: { M1: { vibration: 42 } } }))
+    const props = createPluginProps(bindings)
+
+    function TestComponent() {
+      const vibration = props.useStoreSlice(
+        (s) => (s as { machines: { M1: { vibration: number } } }).machines.M1.vibration,
+      )
+      return createElement("div", null, vibration)
+    }
+
+    render(createElement(TestComponent))
+    expect(screen.getByText("42")).toBeInTheDocument()
   })
 })

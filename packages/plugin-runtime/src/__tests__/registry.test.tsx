@@ -2,7 +2,11 @@ import { describe, it, expect } from "vitest"
 import { render, screen } from "@testing-library/react"
 import { vi } from "vitest"
 import { PluginRegistry } from "../registry"
-import type { SDFPlugin } from "@sdf/types"
+import type { SDFPlugin, PluginProps } from "@sdf/types"
+
+const fakeProps: PluginProps = {
+  useStoreSlice: (selector) => selector(undefined),
+}
 
 function makePlugin(id: string): SDFPlugin {
   return { id, name: id, version: "0.1.0", activate: () => {} }
@@ -35,7 +39,7 @@ describe("PluginRegistry — panel components", () => {
   it("registers a panel component and returns it wrapped for rendering", () => {
     const registry = new PluginRegistry()
     registry.registerPanelComponent("demo", () => "hello from plugin")
-    const panels = registry.getPanelComponents()
+    const panels = registry.getPanelComponents(fakeProps)
     render(<div>{panels["demo"]}</div>)
     expect(screen.getByText("hello from plugin")).toBeInTheDocument()
   })
@@ -46,7 +50,7 @@ describe("PluginRegistry — panel components", () => {
     registry.registerPanelComponent("boom", () => {
       throw new Error("plugin exploded")
     })
-    const panels = registry.getPanelComponents()
+    const panels = registry.getPanelComponents(fakeProps)
     render(
       <div>
         <div>sibling content</div>

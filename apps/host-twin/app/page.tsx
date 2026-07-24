@@ -19,7 +19,7 @@ import { MesReroutingViewer } from "@/components/MesReroutingViewer"
 import { DashboardErrorBoundary } from "@sdf/ui"
 import { LayoutControlBar, LayoutGrid } from "@/components/LayoutManager"
 import { useFactoryStore } from "@/store/factoryStore"
-import { bootstrapPlugins, pluginRegistry } from "@/lib/pluginBootstrap"
+import { bootstrapPlugins, pluginRegistry, pluginProps } from "@/lib/pluginBootstrap"
 import type { LayoutPanelId } from "@sdf/types"
 
 const WS_URL = process.env.NEXT_PUBLIC_WS_URL ?? "ws://localhost:8000/ws"
@@ -112,7 +112,7 @@ export default function Home() {
       </DashboardErrorBoundary>
     ),
 
-    ...pluginRegistry.getPanelComponents(),
+    ...pluginRegistry.getPanelComponents(pluginProps),
   }
 
   return (

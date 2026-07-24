@@ -1,3 +1,4 @@
 export { PluginRegistry } from "./registry"
-export { createPluginContext, type PluginContextBindings } from "./context"
+export { createPluginContext, createPluginProps, type PluginContextBindings } from "./context"
 export { loadPlugins } from "./loader"
+export { createUseStoreSlice } from "./useStoreSlice"
