@@ -1,7 +1,7 @@
 # SDF 오픈소스 플러그인 플랫폼 — 확장 로드맵 (v2)
 
 **Date:** 2026-07-22
-**Status:** Approved (roadmap), Phase 0 완료(머지됨, PR #4), Phase 1 완료(PR #5 리뷰 대기), Phase 2 설계 진행 중
+**Status:** Approved (roadmap), Phase 0 완료(머지됨, PR #4), Phase 1 완료(PR #5 리뷰 대기), Phase 2 완료(PR #6 리뷰 대기)
 
 ---
 
@@ -102,6 +102,8 @@ installed_pipeline_stages: list[PipelineStage] = []
 ---
 
 ## Phase 2 — 시각화 플러그인 2종 + 공통 Props 규격
+
+**상태:** 구현 완료 (PR: `phase2/plugin-props-example-plugins` → `main`, PR #6). 상세 설계는 `2026-07-23-plugin-platform-phase2-design.md`, 구현 계획은 `2026-07-23-plugin-platform-phase2-implementation.md` 참조.
 
 **목표:** Phase 0의 `PluginPanel` 계약을 실제로 사용하는 예시 플러그인 2개(2D 차트, 위험 알림 로그)를 만들면서, Phase 0에서 존재만 확인하고 손대지 않았던 `PluginProps`를 확정한다.
 
@@ -222,7 +224,7 @@ interface PluginProps {
 ## 전체 의존관계 요약
 
 ```
-Phase 0 (완료) ──┬──▶ Phase 2 (진행 중) ──▶ Phase 7 ◀── Phase 1 (완료, PR 리뷰 대기)
+Phase 0 (완료) ──┬──▶ Phase 2 (완료, PR 리뷰 대기) ──▶ Phase 7 ◀── Phase 1 (완료, PR 리뷰 대기)
                  ├──▶ Phase 3 ──▶ Phase 6        │
                  ├──▶ Phase 4                    ▼
                  └──▶ Phase 5              Phase 4.5
