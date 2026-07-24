@@ -78,7 +78,7 @@ export function PluginInspectorPanel({ registry }: { registry: PluginRegistry })
         })}
 
         {rejected.map((entry) => (
-          <div key={entry.id} className="border border-fuchsia-800/60 rounded-lg p-3 space-y-1">
+          <div key={`${entry.id}:${entry.ts}`} className="border border-fuchsia-800/60 rounded-lg p-3 space-y-1">
             <div className="flex items-baseline gap-2">
               <span className="text-fuchsia-400 font-medium text-xs">{entry.id}</span>
               <span className="px-1.5 py-0.5 rounded bg-fuchsia-900/40 text-fuchsia-300 text-[10px] font-medium">

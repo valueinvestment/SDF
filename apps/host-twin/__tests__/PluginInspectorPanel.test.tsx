@@ -59,4 +59,13 @@ describe("PluginInspectorPanel", () => {
 
     expect(screen.getByText("활성화 실패")).toBeInTheDocument()
   })
+
+  it("renders multiple rejected entries sharing the same attempted id without a key collision", () => {
+    const registry = new PluginRegistry()
+    registry.recordRejected("dup", "first attempt failed")
+    registry.recordRejected("dup", "second attempt failed")
+    render(<PluginInspectorPanel registry={registry} />)
+    expect(screen.getByText("first attempt failed")).toBeInTheDocument()
+    expect(screen.getByText("second attempt failed")).toBeInTheDocument()
+  })
 })
