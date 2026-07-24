@@ -10,7 +10,11 @@ from gateway.event_bus import EventBus
 from gateway.ws_gateway import WebSocketGateway
 from simulator.sensor_simulator import SensorSimulator
 from simulator.detail_simulator import DetailSimulator
+from simulator.models import SensorSnapshot
 from agents.orchestrator import AgentOrchestrator
+from plugins.collector_registry import CollectorRegistry
+from plugins.pipeline_registry import PipelineRegistry
+from plugins.installed import build_installed_collectors, installed_pipeline_stages
 
 load_dotenv()
 
@@ -23,7 +27,20 @@ detail_sim = DetailSimulator(seed=42)
 gateway = WebSocketGateway(simulator, detail_sim)
 orchestrator = AgentOrchestrator(bus, gateway, simulator, detail_sim)
 
+collector_registry = CollectorRegistry()
+pipeline_registry = PipelineRegistry()
+for _collector in build_installed_collectors(simulator):
+    collector_registry.register(_collector)
+for _stage in installed_pipeline_stages:
+    pipeline_registry.register(_stage)
+
+_last_status: dict[str, str] = {}
+
 async def simulation_loop():
+    """10Hz broadcast tick. Never awaits collector I/O directly — CollectorRegistry's
+    own background tasks (started in lifespan()) own that. This loop only reads the
+    cache, runs the pipeline, and detects anomaly transitions generically (regardless
+    of whether the fault-injection timer below or a real PipelineStage caused them)."""
     next_fault_at = time.time() + random.uniform(60, 120)
     faulted_machine = None
     while True:
@@ -37,13 +54,29 @@ async def simulation_loop():
                     continue
                 faulted_machine = random.choice(machine_ids)
                 simulator.inject_fault(faulted_machine)
-                await bus.publish({"type": "anomaly_detected", "machineId": faulted_machine})
             if faulted_machine and now >= next_fault_at + 30:
                 simulator.clear_fault(faulted_machine)
                 detail_sim.clear_faults(faulted_machine)
                 faulted_machine = None
                 next_fault_at = now + random.uniform(60, 120)
-            snapshot = simulator.tick()
+
+            machines = {}
+            for mid in simulator.machine_ids:
+                cached = collector_registry.get_cached_state(mid)
+                if cached is None:
+                    continue  # not yet collected (only possible briefly around a dynamic sync_entities add)
+                processed = pipeline_registry.run(mid, cached)
+                machines[mid] = processed
+                previous = _last_status.get(mid)
+                if processed.status == "fault" and previous != "fault":
+                    await bus.publish({"type": "anomaly_detected", "machineId": mid})
+                _last_status[mid] = processed.status
+
+            snapshot = SensorSnapshot(
+                ts=int(time.time() * 1000),
+                machines=machines,
+                robots=simulator.robots_snapshot(),
+            )
             msg = {"type": "sensor_update", "payload": snapshot.model_dump()}
             await gateway.broadcast(msg)          # direct — no bus middleman
             await bus.publish(msg)                # still notify orchestrator
@@ -86,6 +119,8 @@ async def lifespan(app):
         f"[startup] backend online - pid={os.getpid()} gateway_id={id(gateway)} started_at={STARTED_AT}",
         flush=True,
     )
+    await collector_registry.prime_all()  # warm the cache before the first broadcast tick
+    collector_registry.start_all()
     tasks = [
         asyncio.create_task(simulation_loop()),
         asyncio.create_task(broadcast_loop()),
@@ -93,6 +128,7 @@ async def lifespan(app):
         asyncio.create_task(detail_loop()),
     ]
     yield
+    collector_registry.stop_all()
     for t in tasks:
         t.cancel()
 

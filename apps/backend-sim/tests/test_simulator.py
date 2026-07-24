@@ -32,3 +32,12 @@ def test_fault_injection_changes_status():
     sim.inject_fault("M1")
     snapshot = sim.tick()
     assert snapshot.machines["M1"].status in ("degraded", "fault")
+
+def test_robots_snapshot_matches_tick_and_is_stateless():
+    sim = SensorSimulator(seed=42)
+    first = sim.robots_snapshot()
+    second = sim.robots_snapshot()
+    assert first == second  # repeated calls don't drift — no RNG involved
+
+    tick_snapshot = sim.tick()
+    assert tick_snapshot.robots == sim.robots_snapshot()

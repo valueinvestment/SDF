@@ -16,7 +16,7 @@ export interface AlertHistoryItem {
   result?: string
 }
 
-export type MachineStatus = "normal" | "degraded" | "fault"
+export type MachineStatus = "normal" | "degraded" | "fault" | "offline"
 export type RobotStatus = "idle" | "moving" | "dispatched" | "arrived"
 export type AgentId = "A" | "B" | "C"
 export type AgentStatus = "running" | "complete" | "error"
@@ -298,13 +298,19 @@ export interface PluginContext {
 export interface PluginPanel {
   id: string
   label: string
-  component: () => unknown
+  component: (props: PluginProps) => unknown
   defaultPosition?: { x: number; y: number; w: number; h: number }
 }
 
 export interface PluginProps {
-  entityId: string | null
-  machines: Record<string, MachineState>
-  config: DashboardConfig
-  onConfigChange: (patch: Partial<EntityConfig>) => void
+  /**
+   * Subscribes to a slice of the host store via a selector. The component
+   * only re-renders when the selected value actually changes (compared with
+   * deep equality, since the host store clones its full state on every
+   * update, so reference equality would never bypass a re-render), not on
+   * every host store update. `state` is typed `unknown` — plugin-runtime has
+   * no dependency on the host app's concrete store shape, so plugin authors
+   * cast to whatever shape they know at the call site.
+   */
+  useStoreSlice: <T>(selector: (state: unknown) => T) => T
 }

@@ -1,7 +1,7 @@
 from pydantic import BaseModel
 from typing import Literal, Dict, Any
 
-MachineStatus = Literal["normal", "degraded", "fault"]
+MachineStatus = Literal["normal", "degraded", "fault", "offline"]
 RobotStatus = Literal["idle", "moving", "dispatched", "arrived"]
 
 class MachineState(BaseModel):
