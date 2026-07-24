@@ -1,7 +1,7 @@
 # SDF 오픈소스 플러그인 플랫폼 — 확장 로드맵 (v2)
 
 **Date:** 2026-07-22
-**Status:** Approved (roadmap), Phase 0 완료(머지됨, PR #4), Phase 1 완료(PR #5 리뷰 대기), Phase 2 완료(머지됨, PR #6), Phase 3a 완료(PR #7 리뷰 대기)
+**Status:** Approved (roadmap), Phase 0 완료(머지됨, PR #4), Phase 1 완료(PR #5 리뷰 대기), Phase 2 완료(머지됨, PR #6), Phase 3a 완료(PR #7 리뷰 대기), Phase 3b 완료(구현 완료, PR 미생성)
 
 ---
 
@@ -129,7 +129,7 @@ interface PluginProps {
 
 ## Phase 3 — 플러그인 보일러플레이트 생성기 + 인스펙터
 
-**상태:** 두 개의 독립적인 하위 시스템으로 분리해 진행 (브레인스토밍 중 결정). **Phase 3a(생성기 CLI) 완료** — PR: `phase3a/create-plugin-cli` → `main`, PR #7. 상세 설계는 `2026-07-24-plugin-platform-phase3-create-plugin-cli-design.md`, 구현 계획은 `2026-07-24-plugin-platform-phase3a-create-plugin-cli-implementation.md` 참조. 실제 구현은 원래 계획한 `npx create-sdf-plugin`(발행형 npm 패키지) 대신 로컬 레포 스크립트(`pnpm create-plugin <name>`, 프런트엔드 전용, Storybook 미포함)로 축소됨 — 이유는 해당 설계 문서 §1 참조. **Phase 3b(인스펙터)는 아직 브레인스토밍 전.**
+**상태:** 두 개의 독립적인 하위 시스템으로 분리해 진행 (브레인스토밍 중 결정). **Phase 3a(생성기 CLI) 완료** — PR: `phase3a/create-plugin-cli` → `main`, PR #7. 상세 설계는 `2026-07-24-plugin-platform-phase3-create-plugin-cli-design.md`, 구현 계획은 `2026-07-24-plugin-platform-phase3a-create-plugin-cli-implementation.md` 참조. 실제 구현은 원래 계획한 `npx create-sdf-plugin`(발행형 npm 패키지) 대신 로컬 레포 스크립트(`pnpm create-plugin <name>`, 프런트엔드 전용, Storybook 미포함)로 축소됨 — 이유는 해당 설계 문서 §1 참조. **Phase 3b(인스펙터) 구현 완료** — 아직 PR은 생성되지 않음(구현 검증까지 마친 다음 단계). 상세 설계는 `2026-07-24-plugin-platform-phase3b-inspector-design.md`, 구현 계획은 `2026-07-24-plugin-platform-phase3b-inspector-implementation.md` 참조.
 
 **목표(원 구상, 3a/3b 분리 이전):** 서드파티 기여자가 `npx create-sdf-plugin`으로 `SDFPlugin` 구현체 + 테스트 + (필요시) Storybook 스토리가 갖춰진 스캐폴드를 즉시 받을 수 있게 한다. 프런트엔드/백엔드 플러그인 두 템플릿을 모두 지원(Phase 0, Phase 1 계약 기준).
 
@@ -227,7 +227,7 @@ interface PluginProps {
 
 ```
 Phase 0 (완료, 머지됨) ──┬──▶ Phase 2 (완료, 머지됨) ──▶ Phase 7 ◀── Phase 1 (완료, PR 리뷰 대기)
-                        ├──▶ Phase 3a (완료, PR 리뷰 대기) ──▶ Phase 3b ──▶ Phase 6
+                        ├──▶ Phase 3a (완료, PR 리뷰 대기) ──▶ Phase 3b (완료, PR 미생성) ──▶ Phase 6
                         ├──▶ Phase 4                                       │
                         └──▶ Phase 5                                       ▼
                                                                       Phase 4.5
