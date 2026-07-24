@@ -7,6 +7,7 @@ import type {
   ComputedMetric, Rule, RuleAction, ReroutingEvent,
   EntityScale, LayoutConfig, LayoutPanel, LayoutPanelId,
 } from "@sdf/types"
+import { PluginPanelConflictError } from "@sdf/plugin-runtime"
 
 const HISTORY_MAX = 300
 
@@ -558,7 +559,7 @@ export const useFactoryStore = create<FactoryStore>((set, get) => ({
 
   registerPluginPanel: (id, label, defaultPosition) => {
     if (BUILT_IN_PANEL_IDS.has(id)) {
-      throw new Error(`[registerPluginPanel] "${id}"는 내장 패널 id와 충돌합니다`)
+      throw new PluginPanelConflictError(`[registerPluginPanel] "${id}"는 내장 패널 id와 충돌합니다`)
     }
     set((state) => {
       if (state.layoutConfig.panels.some((p) => p.id === id)) return {}

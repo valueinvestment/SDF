@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest"
 import { useFactoryStore } from "@/store/factoryStore"
+import { PluginPanelConflictError } from "@sdf/plugin-runtime"
 
 beforeEach(() => {
   useFactoryStore.setState({
@@ -232,6 +233,12 @@ describe("registerPluginPanel", () => {
   it("throws when the id collides with a built-in panel", () => {
     expect(() => useFactoryStore.getState().registerPluginPanel("canvas", "충돌")).toThrow(
       /내장 패널 id와 충돌/,
+    )
+  })
+
+  it("throws specifically a PluginPanelConflictError (not a plain Error) on built-in id collision", () => {
+    expect(() => useFactoryStore.getState().registerPluginPanel("canvas", "충돌")).toThrow(
+      PluginPanelConflictError,
     )
   })
 })
