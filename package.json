@@ -3,9 +3,11 @@
   "private": true,
   "scripts": {
     "build": "turbo run build",
+    "create-plugin": "node scripts/create-plugin.mjs",
     "dev": "turbo run dev",
     "lint": "turbo run lint",
     "test": "turbo run test",
+    "test:create-plugin": "node --test scripts/__tests__/create-plugin.test.mjs",
     "typecheck": "turbo run typecheck"
   },
   "devDependencies": {

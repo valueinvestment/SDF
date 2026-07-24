@@ -1,5 +1,6 @@
 import { readFile, writeFile, mkdir, unlink } from "node:fs/promises"
 import path from "node:path"
+import { fileURLToPath } from "node:url"
 
 const NAME_PATTERN = /^[a-z][a-z0-9-]*$/
 
@@ -255,4 +256,31 @@ export async function runCreatePlugin({ name, hostTwinDir }) {
   await writeFile(pluginsTsFile, updatedPluginsTsSource, "utf8")
 
   return { pluginFile, testFile, pluginsTsFile }
+}
+
+async function main() {
+  const name = process.argv[2]
+  const hostTwinDir = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "apps", "host-twin")
+
+  try {
+    const result = await runCreatePlugin({ name, hostTwinDir })
+    console.log(`Created:
+  ${result.pluginFile}
+  ${result.testFile}
+Updated:
+  ${result.pluginsTsFile}
+
+Next steps:
+  1. Fill in the TODOs in ${path.basename(result.pluginFile)}
+  2. pnpm --filter @sdf/host-twin test -- ${path.basename(result.testFile)}
+`)
+  } catch (err) {
+    console.error(`create-plugin failed: ${err.message}`)
+    process.exitCode = 1
+  }
+}
+
+const isMainModule = process.argv[1] === fileURLToPath(import.meta.url)
+if (isMainModule) {
+  await main()
 }
