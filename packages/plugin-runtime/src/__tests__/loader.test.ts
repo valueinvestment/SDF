@@ -52,4 +52,75 @@ describe("loadPlugins", () => {
     await new Promise((resolve) => setTimeout(resolve, 0))
     expect(errorSpy).toHaveBeenCalled()
   })
+
+  it("records a rejected entry and skips activate() when register() throws (duplicate id)", () => {
+    vi.spyOn(console, "error").mockImplementation(() => {})
+    const registry = new PluginRegistry()
+    const ctx = createPluginContext(registry, makeBindings())
+    registry.register({ id: "dup", name: "Dup", version: "0.1.0", activate: () => {} })
+
+    const calls: string[] = []
+    loadPlugins(
+      registry,
+      [{ id: "dup", name: "Dup2", version: "0.1.0", activate: () => { calls.push("activated") } }],
+      ctx,
+    )
+
+    expect(calls).toEqual([])
+    const rejected = registry.list().filter((p) => p.status === "rejected")
+    expect(rejected).toEqual([
+      { status: "rejected", id: "dup", message: expect.stringMatching(/already registered/), ts: expect.any(Number) },
+    ])
+  })
+
+  it("records an activate_failed error when activate() throws synchronously", () => {
+    vi.spyOn(console, "error").mockImplementation(() => {})
+    const registry = new PluginRegistry()
+    const ctx = createPluginContext(registry, makeBindings())
+    loadPlugins(
+      registry,
+      [{ id: "bad", name: "Bad", version: "0.1.0", activate: () => { throw new Error("boom") } }],
+      ctx,
+    )
+    expect(registry.getErrors("bad")).toEqual([
+      { kind: "activate_failed", message: "boom", ts: expect.any(Number) },
+    ])
+  })
+
+  it("records a panel_id_conflict error when activate() throws PluginPanelConflictError", () => {
+    vi.spyOn(console, "error").mockImplementation(() => {})
+    const registry = new PluginRegistry()
+    const ctx = createPluginContext(registry, makeBindings())
+    registry.registerPanelComponent("taken", () => "first")
+
+    loadPlugins(
+      registry,
+      [{
+        id: "conflicting",
+        name: "Conflicting",
+        version: "0.1.0",
+        activate: () => { ctx.registerPanel({ id: "taken", label: "충돌", component: () => "second" }) },
+      }],
+      ctx,
+    )
+
+    expect(registry.getErrors("conflicting")).toEqual([
+      { kind: "panel_id_conflict", message: expect.stringMatching(/panel id already registered/), ts: expect.any(Number) },
+    ])
+  })
+
+  it("records an activate_failed error when activate() returns a rejected promise", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {})
+    const registry = new PluginRegistry()
+    const ctx = createPluginContext(registry, makeBindings())
+    loadPlugins(
+      registry,
+      [{ id: "async-bad", name: "AsyncBad", version: "0.1.0", activate: async () => { throw new Error("async boom") } }],
+      ctx,
+    )
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(registry.getErrors("async-bad")).toEqual([
+      { kind: "activate_failed", message: "async boom", ts: expect.any(Number) },
+    ])
+  })
 })
