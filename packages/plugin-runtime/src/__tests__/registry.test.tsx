@@ -78,3 +78,48 @@ describe("PluginRegistry — panel components", () => {
     )
   })
 })
+
+describe("PluginRegistry — introspection", () => {
+  it("list() returns an empty array for a fresh registry", () => {
+    const registry = new PluginRegistry()
+    expect(registry.list()).toEqual([])
+  })
+
+  it("list() includes a summary for each successfully registered plugin", () => {
+    const registry = new PluginRegistry()
+    registry.register({
+      id: "demo",
+      name: "Demo",
+      version: "1.0.0",
+      description: "test plugin",
+      activate: () => {},
+    })
+    expect(registry.list()).toEqual([
+      { status: "active", id: "demo", name: "Demo", version: "1.0.0", description: "test plugin" },
+    ])
+  })
+
+  it("recordRejected() adds a rejected entry surfaced by list()", () => {
+    const registry = new PluginRegistry()
+    registry.recordRejected("dup", "plugin id already registered: dup")
+    const [entry] = registry.list()
+    expect(entry).toMatchObject({ status: "rejected", id: "dup", message: "plugin id already registered: dup" })
+    expect(typeof (entry as { ts: number }).ts).toBe("number")
+  })
+
+  it("getErrors() returns an empty array for a plugin with no recorded errors", () => {
+    const registry = new PluginRegistry()
+    registry.register(makePlugin("demo"))
+    expect(registry.getErrors("demo")).toEqual([])
+  })
+
+  it("recordError() adds an entry retrievable via getErrors() and getAllErrors()", () => {
+    const registry = new PluginRegistry()
+    registry.register(makePlugin("demo"))
+    registry.recordError("demo", { kind: "activate_failed", message: "boom", ts: 123 })
+    expect(registry.getErrors("demo")).toEqual([{ kind: "activate_failed", message: "boom", ts: 123 }])
+    expect(registry.getAllErrors()).toEqual(
+      new Map([["demo", [{ kind: "activate_failed", message: "boom", ts: 123 }]]]),
+    )
+  })
+})
