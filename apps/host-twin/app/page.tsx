@@ -16,6 +16,7 @@ import { MachineDetailPanel } from "@/components/MachineDetailPanel"
 import { RobotDetailPanel } from "@/components/RobotDetailPanel"
 import { RuleEditorPanel } from "@/components/RuleEditorPanel"
 import { MesReroutingViewer } from "@/components/MesReroutingViewer"
+import { PluginInspectorPanel } from "@/components/PluginInspectorPanel"
 import { DashboardErrorBoundary } from "@sdf/ui"
 import { LayoutControlBar, LayoutGrid } from "@/components/LayoutManager"
 import { useFactoryStore } from "@/store/factoryStore"
@@ -109,6 +110,12 @@ export default function Home() {
     mes: (
       <DashboardErrorBoundary label="MES 이관 모니터">
         <MesReroutingViewer />
+      </DashboardErrorBoundary>
+    ),
+
+    inspector: (
+      <DashboardErrorBoundary label="플러그인 인스펙터">
+        <PluginInspectorPanel registry={pluginRegistry} />
       </DashboardErrorBoundary>
     ),
 
