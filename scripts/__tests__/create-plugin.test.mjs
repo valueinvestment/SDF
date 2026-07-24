@@ -1,6 +1,6 @@
 import { test } from "node:test"
 import assert from "node:assert/strict"
-import { validatePluginName, deriveNames } from "../create-plugin.mjs"
+import { validatePluginName, deriveNames, renderPanelTemplate, renderTestTemplate } from "../create-plugin.mjs"
 
 test("validatePluginName accepts a valid kebab-case name", () => {
   assert.doesNotThrow(() => validatePluginName("sensor-heatmap"))
@@ -48,4 +48,26 @@ test("deriveNames derives id, panelId, pascalName, camelName from a hyphenated n
 
 test("deriveNames throws for an invalid name (delegates to validatePluginName)", () => {
   assert.throws(() => deriveNames("Bad_Name"), /Invalid plugin name/)
+})
+
+test("renderPanelTemplate includes the derived names and useStoreSlice/SDFPlugin wiring", () => {
+  const source = renderPanelTemplate({
+    pascalName: "SensorHeatmap",
+    camelName: "sensorHeatmap",
+    id: "sensor-heatmap",
+    panelId: "sensor-heatmap-panel",
+  })
+  assert.match(source, /export function SensorHeatmapPanel\(props: PluginProps\)/)
+  assert.match(source, /props\.useStoreSlice\(\(s\) => s\)/)
+  assert.match(source, /export const sensorHeatmapPlugin: SDFPlugin = \{/)
+  assert.match(source, /id: "sensor-heatmap",/)
+  assert.match(source, /id: "sensor-heatmap-panel",/)
+  assert.match(source, /component: \(props\) => <SensorHeatmapPanel \{\.\.\.props\} \/>,/)
+})
+
+test("renderTestTemplate includes the derived names and a passing smoke assertion target", () => {
+  const source = renderTestTemplate({ pascalName: "SensorHeatmap", camelName: "sensorHeatmap" })
+  assert.match(source, /import \{ SensorHeatmapPanel \} from "\.\.\/sensorHeatmapPlugin"/)
+  assert.match(source, /describe\("SensorHeatmapPanel", \(\) => \{/)
+  assert.match(source, /데이터 대기 중/)
 })
