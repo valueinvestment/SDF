@@ -1,4 +1,5 @@
 import pytest
+from plugins.errors import PluginErrorEntry
 from plugins.pipeline_registry import PipelineRegistry
 from simulator.models import MachineState
 
@@ -89,9 +90,17 @@ def test_run_records_error_when_stage_throws():
 
 
 def test_get_all_errors_returns_a_copy_not_a_live_reference():
-    from plugins.errors import PluginErrorEntry
     registry = PipelineRegistry()
     registry.record_error("s1", "boom")
     errors = registry.get_all_errors()
     errors["s1"].append(PluginErrorEntry(message="mutated", ts=999.0))
     assert len(registry.get_all_errors()["s1"]) == 1
+
+
+def test_run_accumulates_errors_across_different_machines_for_the_same_stage():
+    registry = PipelineRegistry()
+    registry.register(BoomStage())
+    registry.run("M1", make_state())
+    registry.run("M2", make_state())
+    errors = registry.get_all_errors()
+    assert len(errors["boom"]) == 2
