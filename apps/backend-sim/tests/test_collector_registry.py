@@ -2,6 +2,7 @@ import time
 
 import pytest
 from plugins.collector_registry import CollectorRegistry
+from plugins.errors import PluginErrorEntry
 from simulator.models import MachineState
 
 
@@ -140,3 +141,11 @@ async def test_poll_once_records_error_on_collect_failure():
     errors = registry.get_all_errors()
     assert len(errors["c1"]) == 1
     assert "collector failed" in errors["c1"][0].message
+
+
+def test_get_all_errors_returns_a_copy_not_a_live_reference():
+    registry = CollectorRegistry()
+    registry.record_error("c1", "boom")
+    errors = registry.get_all_errors()
+    errors["c1"].append(PluginErrorEntry(message="mutated", ts=999.0))
+    assert len(registry.get_all_errors()["c1"]) == 1

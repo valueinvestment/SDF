@@ -74,8 +74,8 @@ class CollectorRegistry:
             return entry.state.model_copy(update={"status": "offline"})
         return entry.state
 
-    def record_error(self, id: str, message: str) -> None:
-        self._errors.setdefault(id, []).append(PluginErrorEntry(message=message, ts=time.time()))
+    def record_error(self, plugin_id: str, message: str) -> None:
+        self._errors.setdefault(plugin_id, []).append(PluginErrorEntry(message=message, ts=time.time()))
 
     def get_all_errors(self) -> dict[str, list[PluginErrorEntry]]:
-        return dict(self._errors)
+        return {k: list(v) for k, v in self._errors.items()}
