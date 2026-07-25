@@ -7,6 +7,7 @@ beforeEach(() => {
     machines: {},
     robots: {},
     agentEvents: [],
+    backendPluginErrors: [],
     activeAlert: null,
     dispatchCommand: null,
     placedEntities: [],
