@@ -74,4 +74,17 @@ describe("DashboardErrorBoundary (@sdf/ui)", () => {
 
     expect(screen.getByText("정상 위젯")).toBeInTheDocument()
   })
+
+  it("calls onError with the caught error", () => {
+    vi.spyOn(console, "error").mockImplementation(() => {})
+    const onError = vi.fn()
+    render(
+      <DashboardErrorBoundary label="룰 엔진" onError={onError}>
+        <Boom shouldThrow={true} />
+      </DashboardErrorBoundary>,
+    )
+    expect(onError).toHaveBeenCalledTimes(1)
+    expect(onError.mock.calls[0][0]).toBeInstanceOf(Error)
+    expect((onError.mock.calls[0][0] as Error).message).toMatch(/수식 평가 실패/)
+  })
 })
