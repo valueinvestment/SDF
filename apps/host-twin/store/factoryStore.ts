@@ -6,6 +6,7 @@ import type {
   DashboardConfig, EntityConfig, SimTimeScale, WorkOrder, CameraState,
   ComputedMetric, Rule, RuleAction, ReroutingEvent,
   EntityScale, LayoutConfig, LayoutPanel, LayoutPanelId,
+  PluginErrorEvent,
 } from "@sdf/types"
 import { PluginPanelConflictError } from "@sdf/plugin-runtime"
 
@@ -99,10 +100,12 @@ interface FactoryStore {
   machines: Record<string, MachineState>
   robots: Record<string, RobotState>
   agentEvents: AgentEvent[]
+  backendPluginErrors: PluginErrorEvent[]
   activeAlert: Alert | null
   dispatchCommand: DispatchCommand | null
   applySnapshot: (snapshot: SensorSnapshot) => void
   addAgentEvent: (event: AgentEvent) => void
+  addBackendPluginError: (event: PluginErrorEvent) => void
   setActiveAlert: (alert: Alert | null) => void
   setDispatchCommand: (cmd: DispatchCommand | null) => void
 
@@ -202,6 +205,7 @@ export const useFactoryStore = create<FactoryStore>((set, get) => ({
   machines: {},
   robots: {},
   agentEvents: [],
+  backendPluginErrors: [],
   activeAlert: null,
   dispatchCommand: null,
 
@@ -239,6 +243,9 @@ export const useFactoryStore = create<FactoryStore>((set, get) => ({
       })
     }
   },
+
+  addBackendPluginError: (event) =>
+    set((state) => ({ backendPluginErrors: [...state.backendPluginErrors, event] })),
 
   setActiveAlert: (alert) => {
     if (alert) {

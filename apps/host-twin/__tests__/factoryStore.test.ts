@@ -271,3 +271,15 @@ describe("inspector built-in panel", () => {
     )
   })
 })
+
+describe("addBackendPluginError", () => {
+  it("appends to backendPluginErrors", () => {
+    useFactoryStore.getState().addBackendPluginError({
+      source: "collector",
+      id: "c1",
+      message: "boom",
+      ts: 1000,
+    })
+    expect(useFactoryStore.getState().backendPluginErrors).toHaveLength(1)
+  })
+})
