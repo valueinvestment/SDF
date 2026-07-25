@@ -134,3 +134,38 @@ describe("PluginRegistry — introspection", () => {
     ])
   })
 })
+
+describe("PluginRegistry — render errors", () => {
+  it("getRenderErrors() returns an empty array for a panel with no recorded errors", () => {
+    const registry = new PluginRegistry()
+    expect(registry.getRenderErrors("demo")).toEqual([])
+  })
+
+  it("recordRenderError() adds an entry retrievable via getRenderErrors() and getAllRenderErrors()", () => {
+    const registry = new PluginRegistry()
+    registry.recordRenderError("demo", { message: "boom", ts: 123 })
+    expect(registry.getRenderErrors("demo")).toEqual([{ message: "boom", ts: 123 }])
+    expect(registry.getAllRenderErrors()).toEqual(new Map([["demo", [{ message: "boom", ts: 123 }]]]))
+  })
+
+  it("getRenderErrors()/getAllRenderErrors() return defensive copies", () => {
+    const registry = new PluginRegistry()
+    registry.recordRenderError("demo", { message: "boom", ts: 1 })
+    const errors = registry.getRenderErrors("demo")
+    errors.push({ message: "mutated", ts: 2 })
+    expect(registry.getRenderErrors("demo")).toEqual([{ message: "boom", ts: 1 }])
+  })
+
+  it("getPanelComponents() records a render error when a panel component throws", () => {
+    vi.spyOn(console, "error").mockImplementation(() => {})
+    const registry = new PluginRegistry()
+    registry.registerPanelComponent("boom", () => {
+      throw new Error("plugin exploded")
+    })
+    const panels = registry.getPanelComponents(fakeProps)
+    render(<div>{panels["boom"]}</div>)
+    expect(registry.getRenderErrors("boom")).toEqual([
+      { message: "plugin exploded", ts: expect.any(Number) },
+    ])
+  })
+})

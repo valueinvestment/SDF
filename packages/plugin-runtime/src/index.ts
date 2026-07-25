@@ -1,4 +1,4 @@
-export { PluginRegistry, type PluginError, type PluginErrorKind, type PluginSummary } from "./registry"
+export { PluginRegistry, type PluginError, type PluginErrorKind, type PluginSummary, type PanelRenderError } from "./registry"
 export { createPluginContext, createPluginProps, type PluginContextBindings } from "./context"
 export { loadPlugins } from "./loader"
 export { createUseStoreSlice } from "./useStoreSlice"
