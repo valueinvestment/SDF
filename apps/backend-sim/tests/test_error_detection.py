@@ -43,3 +43,13 @@ def test_source_label_is_passed_through_unchanged():
     all_errors = {"s1": [PluginErrorEntry(message="boom", ts=1.0)]}
     events = detect_new_plugin_errors(all_errors, "pipeline_stage", {})
     assert events[0]["source"] == "pipeline_stage"
+
+
+def test_multiple_new_errors_added_between_calls_are_all_returned():
+    all_errors = {"c1": [PluginErrorEntry(message="first", ts=1.0)]}
+    last_seen: dict[str, int] = {}
+    detect_new_plugin_errors(all_errors, "collector", last_seen)  # prime last_seen
+    all_errors["c1"].append(PluginErrorEntry(message="second", ts=2.0))
+    all_errors["c1"].append(PluginErrorEntry(message="third", ts=3.0))
+    events = detect_new_plugin_errors(all_errors, "collector", last_seen)
+    assert [e["message"] for e in events] == ["second", "third"]
