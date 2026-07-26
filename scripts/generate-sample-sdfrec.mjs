@@ -1,11 +1,22 @@
 #!/usr/bin/env node
+// Duplicates apps/host-twin/lib/sdfRecording.ts's encode() byte layout in plain
+// JS (Node can't import .ts without a loader). If the .sdfrec format ever
+// changes, update both files.
 import { writeFileSync, mkdirSync } from "node:fs"
 
 const MAGIC = "SDFR"
 const VERSION = 1
 const CHANNEL_NAMES = ["vibration", "temperature", "current"]
 const MACHINE_COUNT = 5
-const SAMPLES_PER_MACHINE = 5000
+const SAMPLES_PER_MACHINE = 75000
+
+function assertByteLength(text, label) {
+  const bytes = new TextEncoder().encode(text)
+  if (bytes.length > 255) {
+    throw new Error(`generate-sample-sdfrec: ${label} "${text}" exceeds 255 bytes when UTF-8 encoded`)
+  }
+  return bytes
+}
 
 function generateMachineHistory(seed) {
   const history = []
@@ -25,11 +36,14 @@ function generateMachineHistory(seed) {
 function encode(machines) {
   const machineIds = Object.keys(machines)
   const textEncoder = new TextEncoder()
-  const channelNameBytes = CHANNEL_NAMES.map((name) => textEncoder.encode(name))
-  const machineIdBytes = machineIds.map((id) => textEncoder.encode(id))
+  const channelNameBytes = CHANNEL_NAMES.map((name) => assertByteLength(name, "channel name"))
+  const machineIdBytes = machineIds.map((id) => assertByteLength(id, "machine id"))
 
   const allTimestamps = machineIds.flatMap((id) => machines[id].map((row) => row[0]))
-  const sessionStartTs = allTimestamps.length > 0 ? Math.min(...allTimestamps) : Date.now()
+  const sessionStartTs =
+    allTimestamps.length > 0
+      ? allTimestamps.reduce((min, t) => (t < min ? t : min), allTimestamps[0])
+      : Date.now()
 
   let headerSize = 4 + 1 + 8 + 1
   for (const bytes of channelNameBytes) headerSize += 1 + bytes.length

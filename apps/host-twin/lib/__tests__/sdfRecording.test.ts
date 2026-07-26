@@ -1,4 +1,6 @@
 import { describe, it, expect } from "vitest"
+import { readFileSync } from "node:fs"
+import { resolve } from "node:path"
 import { encode, decode } from "../sdfRecording"
 
 function makeMachines(entries: Record<string, [number, number, number, number][]>) {
@@ -91,5 +93,18 @@ describe("sdfRecording — validation", () => {
   it("encode() throws when a machine id exceeds 255 bytes", () => {
     const longId = "M".repeat(256)
     expect(() => encode(makeMachines({ [longId]: [[1000, 1, 2, 3]] }))).toThrow(/exceeds 255 bytes/)
+  })
+})
+
+describe("sdfRecording — committed example fixture", () => {
+  it("decodes examples/sdfrec/sample-session.sdfrec without error", () => {
+    const path = resolve(__dirname, "../../../../examples/sdfrec/sample-session.sdfrec")
+    const buf = readFileSync(path)
+    const arrayBuffer = buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength)
+    const decoded = decode(arrayBuffer)
+
+    expect(decoded.channels).toEqual(["vibration", "temperature", "current"])
+    expect(decoded.machines).toHaveLength(5)
+    expect(decoded.machines.every((m) => m.samples.length === 75000)).toBe(true)
   })
 })

@@ -1,3 +1,6 @@
+// This byte layout is duplicated in scripts/generate-sample-sdfrec.mjs (a plain
+// Node script, can't import this .ts file directly). If this format changes,
+// update both files.
 const MAGIC = "SDFR"
 const VERSION = 1
 const CHANNEL_NAMES = ["vibration", "temperature", "current"] as const
@@ -36,7 +39,10 @@ export function encode(machines: SdfRecordingMachines): ArrayBuffer {
   const machineIdBytes = machineIds.map((id) => assertByteLength(id, "machine id"))
 
   const allTimestamps = machineIds.flatMap((id) => machines[id].history.map((row) => row[0]))
-  const sessionStartTs = allTimestamps.length > 0 ? Math.min(...allTimestamps) : Date.now()
+  const sessionStartTs =
+    allTimestamps.length > 0
+      ? allTimestamps.reduce((min, t) => (t < min ? t : min), allTimestamps[0])
+      : Date.now()
 
   let headerSize = 4 + 1 + 8 + 1 // magic + version + sessionStartTs + channelCount
   for (const bytes of channelNameBytes) headerSize += 1 + bytes.length
