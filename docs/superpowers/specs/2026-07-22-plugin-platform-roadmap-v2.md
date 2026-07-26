@@ -1,7 +1,7 @@
 # SDF 오픈소스 플러그인 플랫폼 — 확장 로드맵 (v2)
 
 **Date:** 2026-07-22
-**Status:** Approved (roadmap), Phase 0 완료(머지됨, PR #4), Phase 1 완료(PR #5 리뷰 대기), Phase 2 완료(머지됨, PR #6), Phase 3a 완료(PR #7 리뷰 대기), Phase 3b 완료(구현 완료, PR 미생성), Phase 6 완료(구현 완료, PR 미생성)
+**Status:** Approved (roadmap), Phase 0 완료(머지됨, PR #4), Phase 1 완료(PR #5 리뷰 대기), Phase 2 완료(머지됨, PR #6), Phase 3a 완료(PR #7 리뷰 대기), Phase 3b 완료(구현 완료, PR 미생성), Phase 6 완료(구현 완료, PR 미생성), Phase 7 완료(구현 완료, PR 미생성)
 
 ---
 
@@ -177,7 +177,9 @@ interface PluginProps {
 
 ---
 
-## Phase 7 — 예시 플러그인 실전 구현 (엔드투엔드 검증)
+## Phase 7 — 예시 플러그인 실전 구현 (엔드투엔드 검증) (완료)
+
+**상태:** 구현 완료 — 아직 PR은 생성되지 않음(구현 검증까지 마친 다음 단계). 상세 설계는 `2026-07-26-plugin-platform-phase7-example-plugin-design.md`, 바이너리 포맷 자체의 독립 스펙은 `sdfrec-format-spec.md`, 구현 계획은 `2026-07-26-plugin-platform-phase7-example-plugin-implementation.md` 참조.
 
 **목표:** 지금까지의 모든 계약을 실전 수준 예시 하나로 엔드투엔드 검증한다. Web Worker 기반 초대용량 바이너리(MDF/DAT — 산업/자동차 계측 데이터 포맷) 파서를 "데이터 수집 플러그인" 예시로 구현: 프런트엔드에서 파일 업로드 → Web Worker에서 파싱(Phase 2의 Render-Bypass 패턴 실전 적용) → 파싱 결과를 백엔드 `Collector`가 소비하거나, 프런트엔드 전용이라면 `PluginPanel`이 직접 시각화. 정확한 데이터 흐름(풀스택인지 프런트엔드 전용인지)은 Phase 1/2 구현 결과를 보고 이 Phase 착수 시점에 결정한다.
 
@@ -249,10 +251,22 @@ interface PluginProps {
 
 ---
 
+## 백로그 — 장시간 세션 녹화 기능
+
+**목표:** Phase 7(예시 플러그인) 브레인스토밍 중 논의되었으나 이번 스코프에서 제외됨. 화면용 `HISTORY_MAX`(300개) 캡과 별개로, 사용자가 "녹화 시작"을 누르면 그 이후 샘플을 캡 없이 별도 버퍼에 누적하다가 "녹화 종료" 시 `.sdfrec`로 다운로드하는 기능.
+
+**제외 이유:** 이 앱은 실시간 모니터링에 초점이 맞춰져 있고, 장시간 원본 데이터 녹화는 사후 분석(오프라인 데이터 분석) 목적의 별개 기능이다. 구현하려면 새 스토어 상태(녹화 중 여부, 누적 버퍼)와 시작/종료 UI 컨트롤이 필요해 스코프가 커진다.
+
+**착수 조건:** 실제로 장시간 세션 분석이 필요한 구체적 요구가 생기면 착수.
+
+**의존관계:** Phase 7 완료 후 언제든 독립적으로 착수 가능.
+
+---
+
 ## 전체 의존관계 요약
 
 ```
-Phase 0 (완료, 머지됨) ──┬──▶ Phase 2 (완료, 머지됨) ──▶ Phase 7 ◀── Phase 1 (완료, PR 리뷰 대기)
+Phase 0 (완료, 머지됨) ──┬──▶ Phase 2 (완료, 머지됨) ──▶ Phase 7 (완료, PR 미생성) ◀── Phase 1 (완료, PR 리뷰 대기)
                         ├──▶ Phase 3a (완료, PR 리뷰 대기) ──▶ Phase 3b (완료, PR 미생성) ──▶ Phase 6 (완료, PR 미생성)
                         ├──▶ Phase 4                                       │
                         └──▶ Phase 5                                       ▼
@@ -264,4 +278,5 @@ Phase 0~7 전체 ──▶ Phase 8 ──▶ Phase 9
 백로그(Quadtree): 무관, 수요 발생 시 착수
 백로그(subscribe clone 비용): Phase 2 완료 후 언제든, 실측 후 착수
 백로그(Inspector rule/metric 개수): Phase 3b 완료 후 언제든, 구체적 필요 발생 시 착수
+백로그(장시간 세션 녹화): Phase 7 완료 후 언제든, 구체적 필요 발생 시 착수
 ```
