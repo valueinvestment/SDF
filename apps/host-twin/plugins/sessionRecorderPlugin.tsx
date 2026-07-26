@@ -11,6 +11,12 @@ interface FactoryStoreShape {
 }
 
 export function SessionRecorderPanel(props: PluginProps) {
+  // Subscribes to the full machines object (not a narrow slice) because it's
+  // only read inside the download click handler, not rendered continuously —
+  // PluginProps has no non-reactive one-shot read escape hatch today, so this
+  // is the only legal way to access it. Don't copy this pattern for a
+  // continuously-rendered/hot-path plugin panel; use a narrow selector there
+  // (see sensorChartPlugin.tsx) so re-renders track only what's displayed.
   const machines = props.useStoreSlice((s) => (s as FactoryStoreShape).machines)
   const [dragOver, setDragOver] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -46,7 +52,15 @@ export function SessionRecorderPanel(props: PluginProps) {
         }
         worker.terminate()
       }
+      worker.onerror = (e) => {
+        setLoading(false)
+        setError(e.message || "Worker 실행 실패")
+        worker.terminate()
+      }
       worker.postMessage(buffer, [buffer])
+    }).catch((err) => {
+      setLoading(false)
+      setError(err instanceof Error ? err.message : "파일을 읽을 수 없습니다")
     })
   }, [])
 

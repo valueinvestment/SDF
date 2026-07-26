@@ -128,4 +128,19 @@ describe("SessionRecorderPanel", () => {
     expect(screen.getByRole("option", { name: "M1" })).toBeInTheDocument()
     expect(screen.getByRole("option", { name: "M2" })).toBeInTheDocument()
   })
+
+  it("parses a file dropped onto the dropzone, not just one selected via the file input", async () => {
+    const props = createPluginProps(makeFakeBindings({}))
+    render(<SessionRecorderPanel {...props} />)
+
+    const buffer = encode({ M1: { history: [[1000, 50, 60, 10]] } })
+    const file = new File([buffer], "dropped.sdfrec")
+    const dropzone = screen.getByText(".sdfrec 파일을 드래그하거나 클릭하여 업로드").parentElement!
+
+    fireEvent.drop(dropzone, { dataTransfer: { files: [file] } })
+
+    await waitFor(() => {
+      expect(screen.getByTestId("chart-mock")).toBeInTheDocument()
+    })
+  })
 })
