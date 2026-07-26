@@ -1,9 +1,12 @@
 /// <reference lib="webworker" />
-import { decode } from "@/lib/sdfRecording"
+// Coexisting with the project's "dom"-lib tsconfig relies on skipLibCheck: true
+// (dom.d.ts and webworker.d.ts both declare `self`/`onmessage`/etc. and conflict
+// otherwise) — don't tighten skipLibCheck without accounting for this file.
+import { decode, type DecodedRecording } from "@/lib/sdfRecording"
 
 export interface WorkerResponse {
   ok: boolean
-  data?: ReturnType<typeof decode>
+  data?: DecodedRecording
   error?: string
 }
 
