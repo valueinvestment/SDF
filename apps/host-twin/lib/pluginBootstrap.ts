@@ -45,7 +45,7 @@ export function createHostBindings(): PluginContextBindings {
 }
 
 const hostBindings = createHostBindings()
-const pluginContext = createPluginContext(pluginRegistry, hostBindings)
+export const pluginContext = createPluginContext(pluginRegistry, hostBindings)
 export const pluginProps = createPluginProps(hostBindings)
 
 // React 18 StrictMode double-invokes effects in dev — guard so bootstrapPlugins()
