@@ -111,7 +111,7 @@ installed_pipeline_stages: list[PipelineStage] = []
 ```typescript
 interface PluginProps {
   useStoreSlice: <T>(selector: (state: ReadonlyFactoryState) => T) => T  // Zustand 선택자 기반, 슬라이스 변경 시에만 리렌더
-  // 대용량 파싱은 Web Worker로 오프로드 — Phase 7의 MDF 파서 예시가 이 패턴을 실전 검증
+  // 대용량 파싱은 Web Worker로 오프로드 — Phase 7의 .sdfrec 파서 예시가 이 패턴을 실전 검증 (MDF 대신 자체 포맷으로 축소, 해당 Phase 참조)
 }
 ```
 2D 차트 플러그인은 `useStoreSlice`로 특정 머신의 히스토리만 구독, 위험 알림 로그 플러그인은 `rules`/`alerts` 슬라이스만 구독하는 식으로 검증한다. 두 플러그인 모두 `packages/ui`의 프리미티브 컴포넌트를 우선 사용해야 한다는 CONTRIBUTING.md의 기존 규칙을 그대로 따른다.
