@@ -54,16 +54,17 @@ export function PluginInspectorPanel({
 
   const handleFileUpload = useCallback(async (file: File) => {
     setUploadError(null)
-    const text = await file.text()
-    const blob = new Blob([text], { type: "text/javascript" })
-    const url = URL.createObjectURL(blob)
+    let url: string | null = null
     try {
+      const text = await file.text()
+      const blob = new Blob([text], { type: "text/javascript" })
+      url = URL.createObjectURL(blob)
       await loadPluginFromURL(registry, url, pluginContext)
       refresh()
     } catch (err) {
       setUploadError(err instanceof Error ? err.message : "플러그인 로드 실패")
     } finally {
-      URL.revokeObjectURL(url)
+      if (url) URL.revokeObjectURL(url)
     }
   }, [registry, pluginContext, refresh])
 
