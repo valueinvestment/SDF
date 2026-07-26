@@ -2,6 +2,7 @@ import time
 
 import pytest
 from plugins.collector_registry import CollectorRegistry
+from plugins.errors import PluginErrorEntry
 from simulator.models import MachineState
 
 
@@ -121,3 +122,30 @@ async def test_start_all_is_idempotent_for_already_started_collector():
     call_count_after_stop = collector.call_count
     await asyncio.sleep(0.05)
     assert collector.call_count == call_count_after_stop  # stop_all actually cancelled the task
+
+
+def test_record_error_and_get_all_errors():
+    registry = CollectorRegistry()
+    registry.record_error("c1", "boom")
+    errors = registry.get_all_errors()
+    assert len(errors["c1"]) == 1
+    assert errors["c1"][0].message == "boom"
+
+
+@pytest.mark.asyncio
+async def test_poll_once_records_error_on_collect_failure():
+    registry = CollectorRegistry()
+    collector = FakeCollector("c1", ["M1"], fail=True)
+    registry.register(collector)
+    await registry.poll_once("c1")
+    errors = registry.get_all_errors()
+    assert len(errors["c1"]) == 1
+    assert "collector failed" in errors["c1"][0].message
+
+
+def test_get_all_errors_returns_a_copy_not_a_live_reference():
+    registry = CollectorRegistry()
+    registry.record_error("c1", "boom")
+    errors = registry.get_all_errors()
+    errors["c1"].append(PluginErrorEntry(message="mutated", ts=999.0))
+    assert len(registry.get_all_errors()["c1"]) == 1

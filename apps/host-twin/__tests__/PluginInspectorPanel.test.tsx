@@ -71,4 +71,32 @@ describe("PluginInspectorPanel", () => {
     expect(errorSpy).not.toHaveBeenCalled()
     errorSpy.mockRestore()
   })
+
+  it("shows panel render errors under a '패널 렌더링 에러' section", () => {
+    const registry = new PluginRegistry()
+    registry.recordRenderError("demo-panel", { message: "render boom", ts: 1 })
+    render(<PluginInspectorPanel registry={registry} />)
+    expect(screen.getByText("패널 렌더링 에러")).toBeInTheDocument()
+    expect(screen.getByText("demo-panel")).toBeInTheDocument()
+    expect(screen.getByText("render boom")).toBeInTheDocument()
+  })
+
+  it("shows backend errors under a '백엔드 에러' section", () => {
+    render(
+      <PluginInspectorPanel
+        registry={new PluginRegistry()}
+        backendErrors={[{ source: "collector", id: "c1", message: "collect failed", ts: 1 }]}
+      />,
+    )
+    expect(screen.getByText("백엔드 에러")).toBeInTheDocument()
+    expect(screen.getByText("Collector")).toBeInTheDocument()
+    expect(screen.getByText("c1")).toBeInTheDocument()
+    expect(screen.getByText("collect failed")).toBeInTheDocument()
+  })
+
+  it("does not show the render-error or backend-error sections when there are none", () => {
+    render(<PluginInspectorPanel registry={new PluginRegistry()} />)
+    expect(screen.queryByText("패널 렌더링 에러")).not.toBeInTheDocument()
+    expect(screen.queryByText("백엔드 에러")).not.toBeInTheDocument()
+  })
 })

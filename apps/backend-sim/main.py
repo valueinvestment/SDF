@@ -15,6 +15,7 @@ from agents.orchestrator import AgentOrchestrator
 from plugins.collector_registry import CollectorRegistry
 from plugins.pipeline_registry import PipelineRegistry
 from plugins.installed import build_installed_collectors, installed_pipeline_stages
+from plugins.error_detection import detect_new_plugin_errors
 
 load_dotenv()
 
@@ -35,6 +36,8 @@ for _stage in installed_pipeline_stages:
     pipeline_registry.register(_stage)
 
 _last_status: dict[str, str] = {}
+_last_collector_error_counts: dict[str, int] = {}
+_last_pipeline_error_counts: dict[str, int] = {}
 
 async def simulation_loop():
     """10Hz broadcast tick. Never awaits collector I/O directly — CollectorRegistry's
@@ -71,6 +74,15 @@ async def simulation_loop():
                 if processed.status == "fault" and previous != "fault":
                     await bus.publish({"type": "anomaly_detected", "machineId": mid})
                 _last_status[mid] = processed.status
+
+            for event in detect_new_plugin_errors(
+                collector_registry.get_all_errors(), "collector", _last_collector_error_counts
+            ):
+                await gateway.broadcast({"type": "plugin_error", "payload": event})
+            for event in detect_new_plugin_errors(
+                pipeline_registry.get_all_errors(), "pipeline_stage", _last_pipeline_error_counts
+            ):
+                await gateway.broadcast({"type": "plugin_error", "payload": event})
 
             snapshot = SensorSnapshot(
                 ts=int(time.time() * 1000),

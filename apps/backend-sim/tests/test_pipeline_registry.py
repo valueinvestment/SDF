@@ -1,4 +1,5 @@
 import pytest
+from plugins.errors import PluginErrorEntry
 from plugins.pipeline_registry import PipelineRegistry
 from simulator.models import MachineState
 
@@ -69,3 +70,37 @@ def test_run_failure_on_one_machine_does_not_affect_another():
     result_m2 = registry.run("M2", make_state())
     assert result_m1.vibration == 50.0
     assert result_m2.vibration == 51.0
+
+
+def test_record_error_and_get_all_errors():
+    registry = PipelineRegistry()
+    registry.record_error("s1", "boom")
+    errors = registry.get_all_errors()
+    assert len(errors["s1"]) == 1
+    assert errors["s1"][0].message == "boom"
+
+
+def test_run_records_error_when_stage_throws():
+    registry = PipelineRegistry()
+    registry.register(BoomStage())
+    registry.run("M1", make_state())
+    errors = registry.get_all_errors()
+    assert len(errors["boom"]) == 1
+    assert "stage exploded" in errors["boom"][0].message
+
+
+def test_get_all_errors_returns_a_copy_not_a_live_reference():
+    registry = PipelineRegistry()
+    registry.record_error("s1", "boom")
+    errors = registry.get_all_errors()
+    errors["s1"].append(PluginErrorEntry(message="mutated", ts=999.0))
+    assert len(registry.get_all_errors()["s1"]) == 1
+
+
+def test_run_accumulates_errors_across_different_machines_for_the_same_stage():
+    registry = PipelineRegistry()
+    registry.register(BoomStage())
+    registry.run("M1", make_state())
+    registry.run("M2", make_state())
+    errors = registry.get_all_errors()
+    assert len(errors["boom"]) == 2

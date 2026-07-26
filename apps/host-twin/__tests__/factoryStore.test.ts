@@ -7,6 +7,7 @@ beforeEach(() => {
     machines: {},
     robots: {},
     agentEvents: [],
+    backendPluginErrors: [],
     activeAlert: null,
     dispatchCommand: null,
     placedEntities: [],
@@ -269,5 +270,17 @@ describe("inspector built-in panel", () => {
     expect(() => useFactoryStore.getState().registerPluginPanel("inspector", "충돌")).toThrow(
       PluginPanelConflictError,
     )
+  })
+})
+
+describe("addBackendPluginError", () => {
+  it("appends to backendPluginErrors", () => {
+    useFactoryStore.getState().addBackendPluginError({
+      source: "collector",
+      id: "c1",
+      message: "boom",
+      ts: 1000,
+    })
+    expect(useFactoryStore.getState().backendPluginErrors).toHaveLength(1)
   })
 })

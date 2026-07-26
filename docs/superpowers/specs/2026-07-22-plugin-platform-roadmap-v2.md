@@ -1,7 +1,7 @@
 # SDF 오픈소스 플러그인 플랫폼 — 확장 로드맵 (v2)
 
 **Date:** 2026-07-22
-**Status:** Approved (roadmap), Phase 0 완료(머지됨, PR #4), Phase 1 완료(PR #5 리뷰 대기), Phase 2 완료(머지됨, PR #6), Phase 3a 완료(PR #7 리뷰 대기), Phase 3b 완료(구현 완료, PR 미생성)
+**Status:** Approved (roadmap), Phase 0 완료(머지됨, PR #4), Phase 1 완료(PR #5 리뷰 대기), Phase 2 완료(머지됨, PR #6), Phase 3a 완료(PR #7 리뷰 대기), Phase 3b 완료(구현 완료, PR 미생성), Phase 6 완료(구현 완료, PR 미생성)
 
 ---
 
@@ -165,9 +165,13 @@ interface PluginProps {
 
 ---
 
-## Phase 6 — ErrorBoundary 기반 플러그인 모니터링 대시보드
+## Phase 6 — ErrorBoundary 기반 플러그인 모니터링 대시보드 (완료)
+
+**상태:** 구현 완료 — 아직 PR은 생성되지 않음(구현 검증까지 마친 다음 단계). 상세 설계는 `2026-07-24-plugin-platform-phase6-monitoring-dashboard-design.md`, 구현 계획은 `2026-07-25-plugin-platform-phase6-monitoring-dashboard-implementation.md` 참조.
 
 **목표:** Phase 0에서 자동으로 씌워지는 `DashboardErrorBoundary`가 지금은 에러를 인라인으로만 렌더링하고 어디에도 보고하지 않는다. Phase 6은 경계가 에러를 잡을 때 중앙 스토어(또는 Phase 3에서 설계된 인스펙터용 채널)로 보고하도록 확장하고, 그 이력을 보여주는 모니터링 패널을 추가한다. 백엔드 쪽(Phase 1의 `CollectorRegistry`/`PipelineRegistry` 에러 로그)도 같은 대시보드에 통합할지는 이 Phase의 브레인스토밍에서 결정한다.
+
+실제 구현: 백엔드는 `CollectorRegistry`/`PipelineRegistry`가 이미 쌓아 두던 에러 이력에서 신규 항목만 골라내는 순수 함수 `detect_new_plugin_errors()`를 추가해 `simulation_loop`(10Hz)에서 매 tick 호출, 새로 발생한 에러만 `plugin_error` WS 메시지로 push한다. 프런트엔드는 `DashboardErrorBoundary`에 `onError` prop을 추가해 렌더링 에러를 잡고, `PluginRegistry`가 패널별 렌더 에러 이력을 추적하도록 확장했다. `factoryStore`에 백엔드 에러 슬라이스를 추가해 `plugin_error` WS 메시지를 라우팅하고, `PluginInspectorPanel`이 프런트엔드 렌더 에러와 백엔드 플러그인 에러를 함께 보여주도록 확장했다.
 
 **의존관계:** Phase 0(에러 바운더리), 이상적으로 Phase 3(인스펙터의 에러 채널 재사용).
 
@@ -235,11 +239,21 @@ interface PluginProps {
 
 ---
 
+## 백로그 — CollectorRegistry/PipelineRegistry 에러 이력 무제한 누적
+
+**목표:** Phase 6(모니터링 대시보드) 설계 중 자체 검토에서 발견됨. 계속 실패하는 Collector/PipelineStage가 있으면 `_errors` 딕셔너리가 가동 시간에 비례해 무한정 커진다(`PipelineRegistry.run()`은 10Hz `simulation_loop`에서 머신마다 매 tick 호출되므로 실질적 위험이 Phase 2의 `_cache`/`_owner` 사례보다 큼). 항목 캡을 걸면 Phase 6의 diff 기반 실시간 push 메커니즘(리스트 길이를 "지난번 본 개수"와 비교)과 상호작용이 복잡해져(오래된 항목이 잘려나갈 때 인덱스가 어긋남), 이번 스코프에서는 캡 없이 진행.
+
+**착수 조건:** 장시간 가동 + 지속적으로 실패하는 스테이지/Collector가 실제 운영 이슈로 확인되면 착수. 캡을 걸 때는 diff 메커니즘을 위한 별도 단조증가 카운터를 함께 설계해야 함(캡된 저장 리스트와 별개로).
+
+**의존관계:** Phase 6 완료 후 언제든 독립적으로 착수 가능.
+
+---
+
 ## 전체 의존관계 요약
 
 ```
 Phase 0 (완료, 머지됨) ──┬──▶ Phase 2 (완료, 머지됨) ──▶ Phase 7 ◀── Phase 1 (완료, PR 리뷰 대기)
-                        ├──▶ Phase 3a (완료, PR 리뷰 대기) ──▶ Phase 3b (완료, PR 미생성) ──▶ Phase 6
+                        ├──▶ Phase 3a (완료, PR 리뷰 대기) ──▶ Phase 3b (완료, PR 미생성) ──▶ Phase 6 (완료, PR 미생성)
                         ├──▶ Phase 4                                       │
                         └──▶ Phase 5                                       ▼
                                                                       Phase 4.5

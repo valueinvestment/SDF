@@ -15,6 +15,11 @@ export type PluginSummary =
   | { status: "active"; id: string; name: string; version: string; description?: string }
   | { status: "rejected"; id: string; message: string; ts: number }
 
+export interface PanelRenderError {
+  message: string
+  ts: number
+}
+
 function PanelRenderer({
   component,
   props,
@@ -29,6 +34,7 @@ export class PluginRegistry {
   private plugins = new Map<string, SDFPlugin>()
   private panelComponents = new Map<string, (props: PluginProps) => unknown>()
   private errors = new Map<string, PluginError[]>()
+  private renderErrors = new Map<string, PanelRenderError[]>()
   private rejected: { id: string; message: string; ts: number }[] = []
 
   register(plugin: SDFPlugin): void {
@@ -58,6 +64,7 @@ export class PluginRegistry {
     for (const [id, component] of this.panelComponents.entries()) {
       result[id] = createElement(DashboardErrorBoundary, {
         label: id,
+        onError: (error: Error) => this.recordRenderError(id, { message: error.message, ts: Date.now() }),
         children: createElement(PanelRenderer, { component, props }),
       })
     }
@@ -80,6 +87,20 @@ export class PluginRegistry {
 
   getAllErrors(): Map<string, PluginError[]> {
     return new Map(Array.from(this.errors, ([id, list]) => [id, [...list]]))
+  }
+
+  recordRenderError(panelId: string, error: PanelRenderError): void {
+    const list = this.renderErrors.get(panelId) ?? []
+    list.push(error)
+    this.renderErrors.set(panelId, list)
+  }
+
+  getRenderErrors(panelId: string): PanelRenderError[] {
+    return [...(this.renderErrors.get(panelId) ?? [])]
+  }
+
+  getAllRenderErrors(): Map<string, PanelRenderError[]> {
+    return new Map(Array.from(this.renderErrors, ([id, list]) => [id, [...list]]))
   }
 
   list(): PluginSummary[] {
