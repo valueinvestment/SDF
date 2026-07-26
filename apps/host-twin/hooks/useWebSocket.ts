@@ -150,6 +150,8 @@ export function useWebSocket(
           } else if (msg.type === "component_fault") {
             store.setComponentFault(msg.payload)
             updateComponentFault?.(msg.payload.machineId, msg.payload.faultedParts)
+          } else if (msg.type === "plugin_error") {
+            store.addBackendPluginError(msg.payload)
           }
         }
       } catch (err) {

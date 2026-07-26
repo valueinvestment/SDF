@@ -52,6 +52,7 @@ export default function Home() {
 
   const selectedId = useFactoryStore((s) => s.selectedEntityId)
   const placedEntities = useFactoryStore((s) => s.placedEntities)
+  const backendPluginErrors = useFactoryStore((s) => s.backendPluginErrors)
   const placedMachines = placedEntities.filter((e) => e.type !== "robot")
 
   const selectedEntity = placedEntities.find((e) => e.id === selectedId)
@@ -117,7 +118,11 @@ export default function Home() {
 
     inspector: (
       <DashboardErrorBoundary label="플러그인 인스펙터">
-        <PluginInspectorPanel key={pluginsReady ? "ready" : "loading"} registry={pluginRegistry} />
+        <PluginInspectorPanel
+          key={pluginsReady ? "ready" : "loading"}
+          registry={pluginRegistry}
+          backendErrors={backendPluginErrors}
+        />
       </DashboardErrorBoundary>
     ),
 

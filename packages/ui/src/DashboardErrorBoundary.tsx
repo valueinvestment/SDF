@@ -4,6 +4,7 @@ import { Component, type ReactNode } from "react"
 interface Props {
   children: ReactNode
   label?: string
+  onError?: (error: Error) => void
 }
 
 interface State {
@@ -29,6 +30,7 @@ export class DashboardErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, info: { componentStack: string }) {
     console.error("[DashboardErrorBoundary]", error, info.componentStack)
+    this.props.onError?.(error)
   }
 
   handleReset = () => {

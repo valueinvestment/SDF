@@ -1,6 +1,7 @@
 "use client"
 import { useCallback, useState } from "react"
-import type { PluginError, PluginRegistry, PluginSummary } from "@sdf/plugin-runtime"
+import type { PluginError, PluginRegistry, PluginSummary, PanelRenderError } from "@sdf/plugin-runtime"
+import type { PluginErrorEvent } from "@sdf/types"
 
 const KIND_LABEL: Record<PluginError["kind"], string> = {
   register_conflict: "등록 충돌",
@@ -22,13 +23,24 @@ function isRejected(summary: PluginSummary): summary is RejectedSummary {
 interface Snapshot {
   summaries: PluginSummary[]
   errors: Map<string, PluginError[]>
+  renderErrors: Map<string, PanelRenderError[]>
 }
 
 function readSnapshot(registry: PluginRegistry): Snapshot {
-  return { summaries: registry.list(), errors: registry.getAllErrors() }
+  return {
+    summaries: registry.list(),
+    errors: registry.getAllErrors(),
+    renderErrors: registry.getAllRenderErrors(),
+  }
 }
 
-export function PluginInspectorPanel({ registry }: { registry: PluginRegistry }) {
+export function PluginInspectorPanel({
+  registry,
+  backendErrors = [],
+}: {
+  registry: PluginRegistry
+  backendErrors?: PluginErrorEvent[]
+}) {
   const [snapshot, setSnapshot] = useState(() => readSnapshot(registry))
   const refresh = useCallback(() => setSnapshot(readSnapshot(registry)), [registry])
 
@@ -89,6 +101,42 @@ export function PluginInspectorPanel({ registry }: { registry: PluginRegistry })
           </div>
         ))}
       </div>
+
+      {snapshot.renderErrors.size > 0 && (
+        <div className="space-y-2">
+          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">패널 렌더링 에러</h3>
+          {Array.from(snapshot.renderErrors.entries()).map(([panelId, errors]) => (
+            <div key={panelId} className="border border-gray-800 rounded-lg p-3 space-y-1.5">
+              <span className="text-gray-400 text-[10px] font-mono">{panelId}</span>
+              {errors.map((err, i) => (
+                <div key={i} className="flex items-start gap-2 text-[11px]">
+                  <span className="px-1.5 py-0.5 rounded bg-fuchsia-900/40 text-fuchsia-300 text-[10px] font-medium flex-shrink-0">
+                    렌더링 실패
+                  </span>
+                  <span className="text-gray-500">{err.message}</span>
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {backendErrors.length > 0 && (
+        <div className="space-y-2">
+          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">백엔드 에러</h3>
+          {backendErrors.map((event, i) => (
+            <div key={i} className="border border-gray-800 rounded-lg p-3 space-y-1.5">
+              <div className="flex items-baseline gap-2">
+                <span className="px-1.5 py-0.5 rounded bg-fuchsia-900/40 text-fuchsia-300 text-[10px] font-medium">
+                  {event.source === "collector" ? "Collector" : "PipelineStage"}
+                </span>
+                <span className="text-gray-400 text-[10px] font-mono">{event.id}</span>
+              </div>
+              <p className="text-gray-500 text-[11px]">{event.message}</p>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
