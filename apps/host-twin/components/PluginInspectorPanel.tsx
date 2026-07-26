@@ -1,7 +1,7 @@
 "use client"
-import { useCallback, useState } from "react"
-import type { PluginError, PluginRegistry, PluginSummary, PanelRenderError } from "@sdf/plugin-runtime"
-import type { PluginErrorEvent } from "@sdf/types"
+import { useCallback, useRef, useState, type ChangeEvent, type DragEvent } from "react"
+import { loadPluginFromURL, type PluginError, type PluginRegistry, type PluginSummary, type PanelRenderError } from "@sdf/plugin-runtime"
+import type { PluginContext, PluginErrorEvent } from "@sdf/types"
 
 const KIND_LABEL: Record<PluginError["kind"], string> = {
   register_conflict: "등록 충돌",
@@ -36,16 +36,48 @@ function readSnapshot(registry: PluginRegistry): Snapshot {
 
 export function PluginInspectorPanel({
   registry,
+  pluginContext,
   backendErrors = [],
 }: {
   registry: PluginRegistry
+  pluginContext: PluginContext
   backendErrors?: PluginErrorEvent[]
 }) {
   const [snapshot, setSnapshot] = useState(() => readSnapshot(registry))
   const refresh = useCallback(() => setSnapshot(readSnapshot(registry)), [registry])
+  const [dragOver, setDragOver] = useState(false)
+  const [uploadError, setUploadError] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const active = snapshot.summaries.filter(isActive)
   const rejected = snapshot.summaries.filter(isRejected)
+
+  const handleFileUpload = useCallback(async (file: File) => {
+    setUploadError(null)
+    const text = await file.text()
+    const blob = new Blob([text], { type: "text/javascript" })
+    const url = URL.createObjectURL(blob)
+    try {
+      await loadPluginFromURL(registry, url, pluginContext)
+      refresh()
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : "플러그인 로드 실패")
+    } finally {
+      URL.revokeObjectURL(url)
+    }
+  }, [registry, pluginContext, refresh])
+
+  const handleFileDrop = (e: DragEvent) => {
+    e.preventDefault()
+    setDragOver(false)
+    const file = e.dataTransfer.files[0]
+    if (file) handleFileUpload(file)
+  }
+
+  const handleFileSelect = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) handleFileUpload(file)
+  }
 
   return (
     <div className="bg-gray-900 rounded-xl p-4 space-y-3">
@@ -137,6 +169,30 @@ export function PluginInspectorPanel({
           ))}
         </div>
       )}
+
+      <div className="space-y-1.5 border-t border-gray-800 pt-3">
+        <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">플러그인 업로드 (개발용)</h3>
+        <div
+          onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={handleFileDrop}
+          onClick={() => fileInputRef.current?.click()}
+          className={`border-2 border-dashed rounded-lg p-3 text-center cursor-pointer transition-colors ${
+            dragOver ? "border-emerald-400 bg-emerald-900/20" : "border-gray-600 hover:border-gray-500"
+          }`}
+        >
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".js"
+            onChange={handleFileSelect}
+            className="hidden"
+          />
+          <p className="text-xs text-gray-400">.js 파일을 드래그하거나 클릭하여 업로드</p>
+        </div>
+        <p className="text-[11px] text-gray-600">예시: examples/plugins/machine-counter-plugin.js를 업로드해보세요</p>
+        {uploadError && <p className="text-xs text-red-400">{uploadError}</p>}
+      </div>
     </div>
   )
 }
