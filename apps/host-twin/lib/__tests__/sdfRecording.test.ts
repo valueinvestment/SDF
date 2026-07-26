@@ -58,6 +58,20 @@ describe("sdfRecording — round trip", () => {
     expect(decoded.channels).toEqual(["vibration", "temperature", "current"])
     expect(decoded.machines).toEqual([])
   })
+
+  it("computes sessionStartTs as the true minimum even when a machine's history is out of order", () => {
+    const machines = makeMachines({
+      M1: [
+        [1000, 1, 2, 3],
+        [500, 4, 5, 6], // out of order — earlier timestamp appears second
+      ],
+    })
+    const decoded = decode(encode(machines))
+    expect(decoded.sessionStartTs).toBe(500)
+    for (const sample of decoded.machines[0].samples) {
+      expect(sample.tsOffsetMs).toBeGreaterThanOrEqual(0)
+    }
+  })
 })
 
 describe("sdfRecording — validation", () => {

@@ -35,10 +35,8 @@ export function encode(machines: SdfRecordingMachines): ArrayBuffer {
   const channelNameBytes = CHANNEL_NAMES.map((name) => assertByteLength(name, "channel name"))
   const machineIdBytes = machineIds.map((id) => assertByteLength(id, "machine id"))
 
-  const firstTimestamps = machineIds
-    .map((id) => machines[id].history[0]?.[0])
-    .filter((ts): ts is number => ts !== undefined)
-  const sessionStartTs = firstTimestamps.length > 0 ? Math.min(...firstTimestamps) : Date.now()
+  const allTimestamps = machineIds.flatMap((id) => machines[id].history.map((row) => row[0]))
+  const sessionStartTs = allTimestamps.length > 0 ? Math.min(...allTimestamps) : Date.now()
 
   let headerSize = 4 + 1 + 8 + 1 // magic + version + sessionStartTs + channelCount
   for (const bytes of channelNameBytes) headerSize += 1 + bytes.length
