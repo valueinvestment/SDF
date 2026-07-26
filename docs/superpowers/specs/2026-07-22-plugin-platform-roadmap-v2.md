@@ -24,7 +24,7 @@
 
 `@sdf/plugin-runtime` 패키지(`PluginRegistry`, `createPluginContext()`, `loadPlugins()`)를 신설하고, 기존에 정의만 되어 있던 `SDFPlugin`/`PluginContext`/`PluginPanel` 계약을 실제로 동작시켰다. 플러그인은 대시보드 패널 등록, 룰 등록, 계산 지표 등록을 할 수 있다. 패널은 `DashboardErrorBoundary`로 자동 격리되고, `PluginContext`는 `store.getState`/`store.subscribe`/`registerPanel`/`registerRule`/`registerMetric` 4개 키만 노출하는 화이트리스트 구조다. 구현 중 발견되어 수정된 실제 결함 3건(subscribe 바인딩의 store 누출, 내장 패널 id 충돌 시 orphan 등록, read-only 스냅샷의 참조 공유로 인한 라이브 스토어 오염)은 모두 회귀 테스트로 고정되었다.
 
-이후 Phase들이 재사용하는 자산: `PluginRegistry.register()`(Phase 4의 동적 로더가 재사용할 단일 진입점), 화이트리스트 컨텍스트 패턴(Phase 4에서 신뢰 경계로 재확인 필요), 자동 에러 격리 패턴(Phase 6 모니터링 대시보드의 데이터 소스).
+이후 Phase들이 재사용하는 자산: `PluginRegistry.register()`(Phase 4의 동적 로더가 실제로 재사용한 단일 진입점), 화이트리스트 컨텍스트 패턴(Phase 4에서 "실수 방지 장치"로 재정의됨 — 진짜 보안 경계가 아님을 확인, 상세는 Phase 4 설계 문서 참조), 자동 에러 격리 패턴(Phase 6 모니터링 대시보드의 데이터 소스).
 
 ---
 
@@ -147,7 +147,7 @@ interface PluginProps {
 
 **목표:** 재빌드 없이 `.js` 플러그인 파일을 업로드하면 `import()`로 런타임에 로드되어 즉시 활성화되는 기능. Phase 0의 `PluginRegistry.register()`를 그대로 재사용하고, 위에 `loadPluginFromURL(url, ctx)` 진입점만 추가한다 — 레지스트리의 공개 API는 바뀌지 않는다(Phase 0 설계 문서 §2.2에서 이미 이렇게 설계됨).
 
-**핵심 위험:** 이 Phase부터 실제로 신뢰할 수 없는 코드가 실행된다. Phase 0에서 만든 화이트리스트 `PluginContext`가 유일한 방어선이 되므로, Phase 4 착수 시 반드시 화이트리스트가 여전히 airtight한지 재검증해야 한다(예: 브라우저 전역 객체, `window`, 다른 스크립트로의 접근 경로가 없는지). 필요하면 `<iframe sandbox>` 또는 `Function` 생성자 기반 격리 컨텍스트 도입을 검토한다 — 이 결정은 Phase 4 자체 브레인스토밍에서 내린다.
+**핵심 위험 (브레인스토밍 결과로 해소됨):** 이 Phase부터 실제로 신뢰할 수 없는 코드가 실행될 수 있다는 우려로 시작했으나, `import()`로 로드된 모듈은 호스트와 동일한 JS 런타임에서 실행되므로 화이트리스트는 애초에 진짜 보안 경계가 될 수 없다는 점을 브레인스토밍에서 확인했다. 진짜 격리(`<iframe sandbox>`)는 모든 기존 플러그인이 의존하는 `PluginPanel.component`의 JSX 직접 반환 계약과 근본적으로 비호환이라 채택하지 않았다. 대신 사용 범위를 신뢰된 개발자·개발 환경·세션 한정으로 확정해 화이트리스트를 "실수 방지 장치"로 재정의했다 — 상세는 `2026-07-26-plugin-platform-phase4-dynamic-plugin-injection-design.md`의 위협 모델 섹션 참조.
 
 **의존관계:** Phase 0 필수. Phase 3의 인스펙터가 있으면 업로드된 플러그인의 스키마 검증에 재사용 가능(선택적 의존).
 
@@ -274,7 +274,7 @@ interface PluginProps {
 ```
 Phase 0 (완료, 머지됨) ──┬──▶ Phase 2 (완료, 머지됨) ──▶ Phase 7 (완료, PR 미생성) ◀── Phase 1 (완료, PR 리뷰 대기)
                         ├──▶ Phase 3a (완료, PR 리뷰 대기) ──▶ Phase 3b (완료, PR 미생성) ──▶ Phase 6 (완료, PR 미생성)
-                        ├──▶ Phase 4                                       │
+                        ├──▶ Phase 4 (완료, PR 미생성)                        │
                         └──▶ Phase 5                                       ▼
                                                                       Phase 4.5
 
