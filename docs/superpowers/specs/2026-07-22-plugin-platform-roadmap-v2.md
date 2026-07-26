@@ -1,7 +1,7 @@
 # SDF 오픈소스 플러그인 플랫폼 — 확장 로드맵 (v2)
 
 **Date:** 2026-07-22
-**Status:** Approved (roadmap), Phase 0 완료(머지됨, PR #4), Phase 1 완료(PR #5 리뷰 대기), Phase 2 완료(머지됨, PR #6), Phase 3a 완료(PR #7 리뷰 대기), Phase 3b 완료(구현 완료, PR 미생성), Phase 6 완료(구현 완료, PR 미생성), Phase 7 완료(구현 완료, PR 미생성)
+**Status:** Approved (roadmap), Phase 0 완료(머지됨, PR #4), Phase 1 완료(PR #5 리뷰 대기), Phase 2 완료(머지됨, PR #6), Phase 3a 완료(PR #7 리뷰 대기), Phase 3b 완료(구현 완료, PR 미생성), Phase 6 완료(구현 완료, PR 미생성), Phase 7 완료(구현 완료, PR 미생성), Phase 4 완료(구현 완료, PR 미생성)
 
 ---
 
@@ -139,7 +139,11 @@ interface PluginProps {
 
 ---
 
-## Phase 4 — 프런트엔드 런타임 동적 주입 샌드박스
+## Phase 4 — 프런트엔드 런타임 동적 주입 샌드박스 (완료)
+
+**상태:** 구현 완료. 상세 설계는 `2026-07-26-plugin-platform-phase4-dynamic-plugin-injection-design.md`, 구현 계획은 `2026-07-26-plugin-platform-phase4-dynamic-plugin-injection-implementation.md` 참조.
+
+**실제 구현:** 위협 모델을 신뢰된 개발자 전용으로 확정하고(iframe 격리 불필요), `PluginRegistry.register()`를 그대로 재사용하는 `loadPluginFromURL(registry, url, ctx)`를 `loadPlugins()`와 공유하는 `registerPlugin`/`activateAndRecord` 헬퍼 위에 구현했다. 업로드 UI는 새 패널이 아니라 기존 `PluginInspectorPanel`에 통합했으며, `examples/plugins/machine-counter-plugin.js`를 시연용으로 커밋했다.
 
 **목표:** 재빌드 없이 `.js` 플러그인 파일을 업로드하면 `import()`로 런타임에 로드되어 즉시 활성화되는 기능. Phase 0의 `PluginRegistry.register()`를 그대로 재사용하고, 위에 `loadPluginFromURL(url, ctx)` 진입점만 추가한다 — 레지스트리의 공개 API는 바뀌지 않는다(Phase 0 설계 문서 §2.2에서 이미 이렇게 설계됨).
 
