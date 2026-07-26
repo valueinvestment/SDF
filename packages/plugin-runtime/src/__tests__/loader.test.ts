@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest"
 import { PluginRegistry } from "../registry"
 import { createPluginContext } from "../context"
-import { loadPlugins } from "../loader"
+import { loadPlugins, loadPluginFromURL } from "../loader"
 import type { SDFPlugin } from "@sdf/types"
 
 function makeBindings() {
@@ -121,6 +121,79 @@ describe("loadPlugins", () => {
     await new Promise((resolve) => setTimeout(resolve, 0))
     expect(registry.getErrors("async-bad")).toEqual([
       { kind: "activate_failed", message: "async boom", ts: expect.any(Number) },
+    ])
+  })
+})
+
+describe("loadPluginFromURL", () => {
+  it("loads, registers, and activates a plugin from a data: URL", async () => {
+    const registry = new PluginRegistry()
+    const ctx = createPluginContext(registry, makeBindings())
+    const url =
+      "data:text/javascript," +
+      encodeURIComponent(
+        `export default { id: "dyn", name: "Dyn", version: "0.1.0", activate: (ctx) => { globalThis.__dynActivated = true } }`,
+      )
+
+    await loadPluginFromURL(registry, url, ctx)
+
+    expect(registry.has("dyn")).toBe(true)
+    expect((globalThis as Record<string, unknown>).__dynActivated).toBe(true)
+    delete (globalThis as Record<string, unknown>).__dynActivated
+  })
+
+  it("throws and does not register when the module's default export is missing activate", async () => {
+    const registry = new PluginRegistry()
+    const ctx = createPluginContext(registry, makeBindings())
+    const url =
+      "data:text/javascript," +
+      encodeURIComponent(`export default { id: "bad-shape", name: "Bad", version: "0.1.0" }`)
+
+    await expect(loadPluginFromURL(registry, url, ctx)).rejects.toThrow(
+      /default export/,
+    )
+    expect(registry.has("bad-shape")).toBe(false)
+  })
+
+  it("throws when the module has no default export at all", async () => {
+    const registry = new PluginRegistry()
+    const ctx = createPluginContext(registry, makeBindings())
+    const url = "data:text/javascript," + encodeURIComponent(`export const notDefault = {}`)
+
+    await expect(loadPluginFromURL(registry, url, ctx)).rejects.toThrow(/default export/)
+  })
+
+  it("records a rejected entry when register() throws (duplicate id), matching loadPlugins()", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {})
+    const registry = new PluginRegistry()
+    const ctx = createPluginContext(registry, makeBindings())
+    registry.register({ id: "dup", name: "Dup", version: "0.1.0", activate: () => {} })
+    const url =
+      "data:text/javascript," +
+      encodeURIComponent(`export default { id: "dup", name: "Dup2", version: "0.1.0", activate: () => {} }`)
+
+    await loadPluginFromURL(registry, url, ctx)
+
+    const rejected = registry.list().filter((p) => p.status === "rejected")
+    expect(rejected).toEqual([
+      { status: "rejected", id: "dup", message: expect.stringMatching(/already registered/), ts: expect.any(Number) },
+    ])
+  })
+
+  it("records an activate_failed error when activate() throws, matching loadPlugins()", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {})
+    const registry = new PluginRegistry()
+    const ctx = createPluginContext(registry, makeBindings())
+    const url =
+      "data:text/javascript," +
+      encodeURIComponent(
+        `export default { id: "boom", name: "Boom", version: "0.1.0", activate: () => { throw new Error("dyn boom") } }`,
+      )
+
+    await loadPluginFromURL(registry, url, ctx)
+
+    expect(registry.getErrors("boom")).toEqual([
+      { kind: "activate_failed", message: "dyn boom", ts: expect.any(Number) },
     ])
   })
 })
