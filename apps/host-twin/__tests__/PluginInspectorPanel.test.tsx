@@ -15,6 +15,7 @@ function makeBindings() {
     addRule: vi.fn(),
     addComputedMetric: vi.fn(),
     registerPanelPosition: vi.fn(),
+    setDemoMode: vi.fn(),
   }
 }
 

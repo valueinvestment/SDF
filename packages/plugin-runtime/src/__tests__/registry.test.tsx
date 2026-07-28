@@ -7,6 +7,7 @@ import type { SDFPlugin, PluginProps } from "@sdf/types"
 
 const fakeProps: PluginProps = {
   useStoreSlice: (selector) => selector(undefined),
+  setDemoMode: () => {},
 }
 
 function makePlugin(id: string): SDFPlugin {

@@ -15,6 +15,7 @@ function makeFakeBindings(initial: unknown) {
     addRule: () => {},
     addComputedMetric: () => {},
     registerPanelPosition: () => {},
+    setDemoMode: () => {},
   }
 }
 
