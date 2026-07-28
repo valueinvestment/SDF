@@ -1,6 +1,6 @@
 # Phase 4.5 — 백엔드 플러그인 동적 로딩 설계
 
-**상태:** 브레인스토밍 완료, 사용자 승인 대기
+**상태:** 브레인스토밍 완료, 승인됨 (사용자 위임 검토 — 설계 검토 중 발견된 Collector 가시성 문제를 PipelineStage 예시로 교체해 반영, 2026-07-28)
 **로드맵 참조:** `docs/superpowers/specs/2026-07-22-plugin-platform-roadmap-v2.md` Phase 4.5 섹션
 
 ## 목표
@@ -14,6 +14,8 @@ Python은 브라우저의 iframe과 달리 진짜 프로세스 격리(subprocess
 이 비대칭에도 불구하고, 이번 Phase는 **신뢰 기반, 프로세스 격리 없음**으로 결정했다 — Phase 4(프런트엔드)와 동일한 결론이지만 독립적으로 재평가한 결과다. 신뢰 경계는 "로컬 파일시스템에 `apps/backend-sim/plugins/uploaded/`에 파일을 배치할 수 있는 사람"으로 한정한다. Collector만 부분적으로 격리하는 절충안(2번째 논의 옵션)은 Collector/PipelineStage 간 아키텍처 비대칭을 낳고, 이번 스코프(신뢰된 개발자용)에 걸맞지 않은 엔지니어링 비용이라 채택하지 않았다.
 
 **주입 경로**: HTTP 업로드 엔드포인트는 만들지 않는다 — 이는 신뢰 경계를 "파일시스템 접근자"에서 "이 포트에 닿는 누구나"로 실질적으로 넓히는 것이라 신뢰 기반 모델과 모순된다. 대신 지정 폴더를 백그라운드에서 주기적으로 폴링한다(추가 네트워크 표면 없음).
+
+**기존 아키텍처의 제약 (설계 검토 중 발견, 이 Phase에서 해결하지 않음):** `main.py`의 `simulation_loop`은 `simulator.machine_ids`(프론트엔드가 `sync_entities`로 캔버스에 배치한 엔티티 목록)만 순회하며 브로드캐스트한다 — `CollectorRegistry`가 어떤 머신을 소유하는지는 참조하지 않는다. 따라서 동적으로 로드된 Collector가 `simulator.machine_ids`에 없는 새 머신 id를 등록하면, 등록·폴링·캐싱까지는 전부 정상 동작하지만 프론트엔드로는 절대 브로드캐스트되지 않는다 — 에러 없이 조용히 "보이지 않을" 뿐이다. 게다가 기존 M1~M5는 서버 부팅 시 `SimulatorCollector`가 이미 소유권(`_owner`)을 가져가므로, 다른 Collector가 같은 id를 등록하려 하면 충돌 에러가 난다. 결과적으로 현재 아키텍처에서 동적 Collector가 "새 머신을 대시보드에 나타나게" 만들 방법이 없다 — `simulation_loop`을 바꾸는 건 프런트엔드 렌더링(머신 좌표 등)까지 얽히는 별도 스코프라 이번 Phase에서 다루지 않는다. 이 제약 때문에 예시 플러그인은 Collector가 아니라 PipelineStage로 골랐다(아래 예시 섹션 참조) — PipelineStage는 이미 브로드캐스트 중인 머신의 상태만 변형하므로 이 문제 자체가 없다.
 
 ## 아키텍처 & 데이터 흐름
 
@@ -148,44 +150,47 @@ tasks = [
 
 `apps/backend-sim/plugins/uploaded/*.py` 추가 — 업로드된 플러그인은 런타임 산출물이라 커밋 대상이 아니다(프런트엔드의 세션 한정 결정과 같은 정신). 디렉토리 자체는 `apps/backend-sim/plugins/uploaded/.gitkeep`으로 유지.
 
-### `examples/plugins/example_collector.py` (신규, 커밋됨)
+### `examples/plugins/example_pipeline_stage.py` (신규, 커밋됨)
 
 ```python
 """SDF Digital Twin — 예시 백엔드 플러그인 (런타임 동적 로딩용)
 
 이 파일을 apps/backend-sim/plugins/uploaded/ 에 복사해두면, 서버가 5초 이내에
-자동으로 감지해서 로드·등록합니다 (재시작 불필요).
+자동으로 감지해서 로드·등록합니다 (재시작 불필요) — 대시보드를 보고 있으면
+곧 M1~M5 중 하나가 fault 상태로 바뀌는 걸 확인할 수 있습니다.
 
-collectors: list[Collector] 를 모듈 최상위에 정의하면 dynamic_loader가 이 리스트를
-읽어 CollectorRegistry.register()를 대신 호출합니다 — 이 파일이 직접 registry를
-다루지 않습니다.
+pipeline_stages: list[PipelineStage] 를 모듈 최상위에 정의하면 dynamic_loader가
+이 리스트를 읽어 PipelineRegistry.register()를 대신 호출합니다 — 이 파일이 직접
+registry를 다루지 않습니다.
+
+Collector가 아니라 PipelineStage를 예시로 고른 이유: 동적으로 로드된 Collector가
+simulator.machine_ids(프론트엔드가 캔버스에 배치한 엔티티 목록)에 없는 새 머신
+id를 등록하면 등록·폴링까지는 성공하지만 브로드캐스트 대상에서 제외되어 대시보드에
+보이지 않습니다(기존 아키텍처의 제약, 설계 문서의 "기존 아키텍처의 제약" 참조).
+PipelineStage는 이미 브로드캐스트되고 있는 기존 머신의 상태를 매 tick마다 변형할
+뿐이라 이 문제 자체가 없어, 파일을 놓자마자 바로 눈으로 확인할 수 있습니다.
 """
-import random
 from simulator.models import MachineState
 
 
-class ExampleRandomCollector:
-    """실제 장비 대신 무작위 값을 반환하는 최소 예시 Collector."""
+class ExampleVibrationThresholdStage:
+    """진동이 임계값을 넘으면 상태를 fault로 전환하는 최소 예시 PipelineStage.
+    임계값(60)은 정상 범위(20~80)의 중간값으로, 데모가 몇 초 안에 보이도록
+    일부러 낮게 잡았다 — 실제 산업 안전 임계값이 아니다. 기존
+    tests/test_plugin_integration.py의 ThresholdFaultStage와 같은 패턴이다.
+    main.py의 anomaly_detected 발화 로직은 "fault로의 전이"만 감지하므로,
+    이 스테이지가 상태를 바꾸면 기존 알림 파이프라인도 그대로 반응한다."""
 
-    id = "example-random-collector"
-    machine_ids = ["EXAMPLE-M1"]
-    poll_interval_sec = 2.0
+    id = "example-vibration-threshold"
 
-    async def collect(self) -> dict[str, MachineState]:
-        return {
-            "EXAMPLE-M1": MachineState(
-                vibration=random.uniform(40, 60),
-                temperature=random.uniform(55, 65),
-                current=random.uniform(8, 12),
-                status="normal",
-            )
-        }
+    def process(self, machine_id: str, state: MachineState) -> MachineState:
+        if state.vibration > 60 and state.status == "normal":
+            return state.model_copy(update={"status": "fault"})
+        return state
 
 
-collectors = [ExampleRandomCollector()]
+pipeline_stages = [ExampleVibrationThresholdStage()]
 ```
-
-`machine_ids = ["EXAMPLE-M1"]`처럼 시뮬레이터가 모르는 새 머신 id를 예시로 써서, 이 Collector가 실제로 새 머신을 하나 추가한다는 걸 명확히 보여준다(기존 시뮬레이터 머신과 충돌 없음). `pipeline_stages`는 이 예시에서 생략 — Collector 하나만으로도 동적 로딩 흐름 전체(파일 배치 → 감지 → 등록 → 폴링 시작)를 다 보여주기 충분하다.
 
 ## 에러 처리 요약
 
@@ -220,6 +225,7 @@ collectors = [ExampleRandomCollector()]
 - 서브프로세스/멀티프로세스 기반 진짜 프로세스 격리 (신뢰 기반 모델로 결정, PipelineStage의 핫패스 IPC 비용이 결정적 이유)
 - 파일 수정 시 자동 재로딩(hot-reload-on-edit) — 파일명 변경 또는 서버 재시작 필요
 - 프런트엔드 UI 변경 — 로드 실패는 기존 Inspector의 "백엔드 에러" 섹션을 그대로 재사용, 새 UI 없음
+- 동적 Collector가 도입하는 새 머신 id를 대시보드에 보이게 만드는 것 — `simulation_loop`이 `simulator.machine_ids`(프런트엔드 `sync_entities` 기반)만 순회하는 기존 제약 때문에, 새 머신은 등록·폴링은 성공해도 브로드캐스트되지 않는다. 이를 고치려면 `simulation_loop`과 프런트엔드 렌더링(머신 좌표 등)까지 건드려야 해 별도 스코프로 취급한다 — 이번 Phase의 예시는 이 문제가 없는 PipelineStage로 골랐다.
 
 ## 의존관계
 
