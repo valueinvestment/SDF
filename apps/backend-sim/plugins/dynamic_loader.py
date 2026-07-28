@@ -40,7 +40,11 @@ async def scan_and_load(
             print(f"[dynamic_loader] failed to import {path.name}: {e}", flush=True)
             continue
 
-        for collector in getattr(module, "collectors", []):
+        collectors = getattr(module, "collectors", [])
+        if not isinstance(collectors, (list, tuple)):
+            print(f"[dynamic_loader] {path.name}: 'collectors' must be a list, got {type(collectors).__name__}", flush=True)
+            collectors = []
+        for collector in collectors:
             if not isinstance(collector, Collector):
                 print(f"[dynamic_loader] {path.name}: collectors entry is not a valid Collector", flush=True)
                 continue
@@ -50,7 +54,11 @@ async def scan_and_load(
             except Exception as e:
                 collector_registry.record_error(collector.id, str(e))
 
-        for stage in getattr(module, "pipeline_stages", []):
+        pipeline_stages = getattr(module, "pipeline_stages", [])
+        if not isinstance(pipeline_stages, (list, tuple)):
+            print(f"[dynamic_loader] {path.name}: 'pipeline_stages' must be a list, got {type(pipeline_stages).__name__}", flush=True)
+            pipeline_stages = []
+        for stage in pipeline_stages:
             if not isinstance(stage, PipelineStage):
                 print(f"[dynamic_loader] {path.name}: pipeline_stages entry is not a valid PipelineStage", flush=True)
                 continue
@@ -72,5 +80,8 @@ async def dynamic_loader_loop(
     directory.mkdir(parents=True, exist_ok=True)
     loaded: set[str] = set()
     while True:
-        await scan_and_load(directory, collector_registry, pipeline_registry, loaded)
+        try:
+            await scan_and_load(directory, collector_registry, pipeline_registry, loaded)
+        except Exception as e:
+            print(f"[dynamic_loader] scan_and_load failed: {e}", flush=True)
         await asyncio.sleep(interval_sec)
