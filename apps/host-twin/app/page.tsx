@@ -1,6 +1,6 @@
 "use client"
 import { useEffect, useRef, useState } from "react"
-import { useWebSocket } from "@/hooks/useWebSocket"
+import { useWebSocket, type WsStatus } from "@/hooks/useWebSocket"
 import { useThreeScene } from "@/hooks/useThreeScene"
 import { useSimulator } from "@/hooks/useSimulator"
 import { useConfigSync } from "@/hooks/useConfigSync"
@@ -24,6 +24,14 @@ import { bootstrapPlugins, pluginRegistry, pluginProps, pluginContext } from "@/
 import type { LayoutPanelId } from "@sdf/types"
 
 const WS_URL = process.env.NEXT_PUBLIC_WS_URL ?? "ws://localhost:8000/ws"
+
+const WS_STATUS_STYLES: Record<WsStatus, { label: string; className: string }> = {
+  connected:    { label: "● 연결됨",     className: "bg-green-900 text-green-400" },
+  connecting:   { label: "○ 연결 중...", className: "bg-yellow-900 text-yellow-400" },
+  demo:         { label: "🎬 데모 모드", className: "bg-purple-900 text-purple-400" },
+  error:        { label: "✕ 오류",       className: "bg-red-900 text-red-400" },
+  disconnected: { label: "✕ 연결 끊김", className: "bg-gray-800 text-gray-500" },
+}
 
 export default function Home() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -140,17 +148,8 @@ export default function Home() {
         <h1 className="text-xl font-bold">SDF 디지털 트윈</h1>
 
         {/* WS 상태 */}
-        <span className={`text-xs px-2 py-0.5 rounded-full font-mono ${
-          wsStatus === "connected"  ? "bg-green-900 text-green-400" :
-          wsStatus === "connecting" ? "bg-yellow-900 text-yellow-400" :
-          wsStatus === "demo"       ? "bg-purple-900 text-purple-400" :
-          wsStatus === "error"      ? "bg-red-900 text-red-400" :
-                                      "bg-gray-800 text-gray-500"
-        }`}>
-          {wsStatus === "connected"  ? "● 연결됨" :
-           wsStatus === "connecting" ? "○ 연결 중..." :
-           wsStatus === "demo"       ? "🎬 데모 모드" :
-           wsStatus === "error"      ? "✕ 오류" : "✕ 연결 끊김"}
+        <span className={`text-xs px-2 py-0.5 rounded-full font-mono ${WS_STATUS_STYLES[wsStatus].className}`}>
+          {WS_STATUS_STYLES[wsStatus].label}
         </span>
 
         {/* 레이아웃 컨트롤바 */}
