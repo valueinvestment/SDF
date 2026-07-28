@@ -171,7 +171,7 @@ interface PluginProps {
 
 **5a 실제 구현:** 설계 단계에서 `apps/host-twin/hooks/useSimulator.ts`가 이미 WS 미연결 시 자동으로 가동되는 모킹 시뮬레이터(사인파+가우시안 노이즈, 고장 주기 포함)를 구현하고 있음을 발견해, 새 생성기를 만드는 대신 `useWebSocket`에 `demoMode` 파라미터를 추가해 실제 연결을 건너뛰게 하는 방식으로 기존 로직을 재사용했다. `PluginProps`에 최초의 쓰기 메서드(`setDemoMode`)를 추가해 새 `demoControllerPlugin` 패널이 런타임에 토글할 수 있게 했다.
 
-**목표:** 실제 백엔드 없이 저장된/생성된 WS 스트림을 재생해 데모할 수 있는 모드, 그리고 드래그 인터랙션으로 룰을 정의하는 UI(기존 `RuleEditorPanel` 확장). Phase 0의 패널 계약을 재사용해 "데모 컨트롤러" 자체도 하나의 플러그인 패널로 구현 가능한지 검토한다.
+**목표(원 구상, 5a/5b 분리 이전):** 실제 백엔드 없이 저장된/생성된 WS 스트림을 재생해 데모할 수 있는 모드, 그리고 드래그 인터랙션으로 룰을 정의하는 UI(기존 `RuleEditorPanel` 확장). Phase 0의 패널 계약을 재사용해 "데모 컨트롤러" 자체도 하나의 플러그인 패널로 구현 가능한지 검토한다.
 
 **의존관계:** Phase 0 패널 계약. Phase 1이 완료되어 있으면 모킹 스트림도 `Collector` 인터페이스를 구현한 `MockReplayCollector`로 자연스럽게 통합 가능(권장하지만 필수는 아님 — Phase 1과 병행 착수 가능).
 
