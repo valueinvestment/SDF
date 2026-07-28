@@ -321,4 +321,13 @@ export interface PluginProps {
    * cast to whatever shape they know at the call site.
    */
   useStoreSlice: <T>(selector: (state: unknown) => T) => T
+  /**
+   * Turns demo mode on or off. When on, the host skips connecting to the
+   * real backend WebSocket and the pre-existing frontend-only mock simulator
+   * (`useSimulator`) takes over automatically — this method only flips that
+   * switch, it doesn't generate any data itself. This is the first write
+   * capability ever exposed on `PluginProps`, so it's kept narrow and
+   * purpose-specific (not a general dispatch mechanism).
+   */
+  setDemoMode: (enabled: boolean) => void
 }

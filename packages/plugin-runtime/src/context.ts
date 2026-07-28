@@ -12,6 +12,7 @@ export interface PluginContextBindings {
     label: string,
     defaultPosition?: PluginPanel["defaultPosition"],
   ) => void
+  setDemoMode: (enabled: boolean) => void
 }
 
 export function createPluginContext(
@@ -40,5 +41,6 @@ export function createPluginContext(
 export function createPluginProps(bindings: PluginContextBindings): PluginProps {
   return {
     useStoreSlice: createUseStoreSlice(bindings.getReadOnlyState, bindings.subscribe),
+    setDemoMode: bindings.setDemoMode,
   }
 }

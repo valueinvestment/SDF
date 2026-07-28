@@ -7,6 +7,7 @@ import type { PluginProps } from "@sdf/types"
 
 const fakeProps: PluginProps = {
   useStoreSlice: (selector) => selector(undefined),
+  setDemoMode: () => {},
 }
 
 function makeBindings() {
@@ -16,6 +17,7 @@ function makeBindings() {
     addRule: vi.fn(),
     addComputedMetric: vi.fn(),
     registerPanelPosition: vi.fn(),
+    setDemoMode: vi.fn(),
   }
 }
 
@@ -83,9 +85,16 @@ describe("createPluginContext", () => {
 })
 
 describe("createPluginProps", () => {
-  it("exposes exactly the useStoreSlice key", () => {
+  it("exposes exactly the useStoreSlice and setDemoMode keys", () => {
     const props = createPluginProps(makeBindings())
-    expect(Object.keys(props)).toEqual(["useStoreSlice"])
+    expect(Object.keys(props).sort()).toEqual(["setDemoMode", "useStoreSlice"].sort())
+  })
+
+  it("setDemoMode delegates to bindings.setDemoMode", () => {
+    const bindings = makeBindings()
+    const props = createPluginProps(bindings)
+    props.setDemoMode(true)
+    expect(bindings.setDemoMode).toHaveBeenCalledWith(true)
   })
 
   it("useStoreSlice reads the selected slice from bindings.getReadOnlyState", () => {
