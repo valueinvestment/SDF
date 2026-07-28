@@ -284,3 +284,16 @@ describe("addBackendPluginError", () => {
     expect(useFactoryStore.getState().backendPluginErrors).toHaveLength(1)
   })
 })
+
+describe("demoMode", () => {
+  it("defaults to false", () => {
+    expect(useFactoryStore.getState().demoMode).toBe(false)
+  })
+
+  it("setDemoMode toggles it", () => {
+    useFactoryStore.getState().setDemoMode(true)
+    expect(useFactoryStore.getState().demoMode).toBe(true)
+    useFactoryStore.getState().setDemoMode(false)
+    expect(useFactoryStore.getState().demoMode).toBe(false)
+  })
+})

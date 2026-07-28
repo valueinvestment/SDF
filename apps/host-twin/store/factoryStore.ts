@@ -108,6 +108,8 @@ interface FactoryStore {
   addBackendPluginError: (event: PluginErrorEvent) => void
   setActiveAlert: (alert: Alert | null) => void
   setDispatchCommand: (cmd: DispatchCommand | null) => void
+  demoMode: boolean
+  setDemoMode: (enabled: boolean) => void
 
   // 배치 시스템
   placedEntities: PlacedEntity[]
@@ -208,6 +210,8 @@ export const useFactoryStore = create<FactoryStore>((set, get) => ({
   backendPluginErrors: [],
   activeAlert: null,
   dispatchCommand: null,
+  demoMode: false,
+  setDemoMode: (enabled) => set({ demoMode: enabled }),
 
   applySnapshot: (snapshot) => {
     if (!snapshot?.machines) return
