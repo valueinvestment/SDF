@@ -541,7 +541,7 @@ git commit -m "feat(host-twin): add demoControllerPlugin panel"
 
 ---
 
-### Task 6: Fix the `PluginContextBindings` cascade in the remaining 5 test files
+### Task 6: Fix the `PluginContextBindings`/`PluginProps` cascade in the remaining 6 test files
 
 **Files:**
 - Modify: `apps/host-twin/plugins/__tests__/alertLogPlugin.test.tsx`
@@ -549,8 +549,9 @@ git commit -m "feat(host-twin): add demoControllerPlugin panel"
 - Modify: `apps/host-twin/plugins/__tests__/sessionRecorderPlugin.test.tsx`
 - Modify: `apps/host-twin/__tests__/PluginInspectorPanel.test.tsx`
 - Modify: `packages/plugin-runtime/src/__tests__/loader.test.ts`
+- Modify: `packages/plugin-runtime/src/__tests__/registry.test.tsx`
 
-Since Task 1, these 5 files have been failing to typecheck because they each construct a `PluginContextBindings`-shaped object literal missing the new required `setDemoMode` field. Each fix is a single added line — no behavior changes, no new test cases, purely mechanical (same pattern as Phase 4's `PluginInspectorPanel.tsx` prop-cascade fix across its own test file).
+Since Task 1, these 6 files have been failing to typecheck. Five of them construct a `PluginContextBindings`-shaped object literal missing the new required `setDemoMode` field. The sixth, `registry.test.tsx`, was missed during planning — it constructs a fully-typed `PluginProps` literal directly (`const fakeProps: PluginProps = { useStoreSlice: ... }`, same pattern `context.test.ts` had before Task 1 fixed it), found by Task 1's implementer during its own typecheck verification. Each fix is a single added line — no behavior changes, no new test cases, purely mechanical (same pattern as Phase 4's `PluginInspectorPanel.tsx` prop-cascade fix across its own test file).
 
 - [ ] **Step 1: Add `setDemoMode` to each file's bindings literal**
 
@@ -604,6 +605,21 @@ Change to:
     setDemoMode: vi.fn(),
 ```
 
+In `packages/plugin-runtime/src/__tests__/registry.test.tsx`, find (near the top of the file):
+```ts
+const fakeProps: PluginProps = {
+  useStoreSlice: (selector) => selector(undefined),
+}
+```
+Change to:
+```ts
+const fakeProps: PluginProps = {
+  useStoreSlice: (selector) => selector(undefined),
+  setDemoMode: () => {},
+}
+```
+(Read the file first to confirm the exact current selector implementation inside `useStoreSlice` — it may differ slightly from what's shown here — and only add the new `setDemoMode` line, don't change anything else in the literal.)
+
 - [ ] **Step 2: Run the full test suite and typecheck to confirm everything is clean**
 
 Run: `pnpm typecheck` (repo root)
@@ -615,7 +631,7 @@ Expected: PASS. Expected counts: `@sdf/plugin-runtime` 46 tests (45 pre-existing
 - [ ] **Step 3: Commit**
 
 ```bash
-git add apps/host-twin/plugins/__tests__/alertLogPlugin.test.tsx apps/host-twin/plugins/__tests__/sensorChartPlugin.test.tsx apps/host-twin/plugins/__tests__/sessionRecorderPlugin.test.tsx apps/host-twin/__tests__/PluginInspectorPanel.test.tsx packages/plugin-runtime/src/__tests__/loader.test.ts
+git add apps/host-twin/plugins/__tests__/alertLogPlugin.test.tsx apps/host-twin/plugins/__tests__/sensorChartPlugin.test.tsx apps/host-twin/plugins/__tests__/sessionRecorderPlugin.test.tsx apps/host-twin/__tests__/PluginInspectorPanel.test.tsx packages/plugin-runtime/src/__tests__/loader.test.ts packages/plugin-runtime/src/__tests__/registry.test.tsx
 git commit -m "fix(host-twin,plugin-runtime): add setDemoMode to remaining fake-bindings test helpers"
 ```
 
