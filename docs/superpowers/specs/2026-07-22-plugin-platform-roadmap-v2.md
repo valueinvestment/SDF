@@ -159,7 +159,7 @@ interface PluginProps {
 
 **실제 구현:** Phase 4(프런트엔드)와 마찬가지로 신뢰 기반(프로세스 격리 없음)으로 결정했으나 독립적으로 재평가한 결과다 — PipelineStage가 simulation_loop의 동기 10Hz 핫패스에 있어 서브프로세스 격리 시 매 tick IPC 비용이 크다는 게 결정적 이유였다. `apps/backend-sim/plugins/uploaded/`를 5초마다 폴링하는 `dynamic_loader_loop()`가 `CollectorRegistry.register()`/`PipelineRegistry.register()`를 그대로 재사용하고, 등록 실패는 기존 `record_error()`로 기록되어 Phase 6의 `plugin_error` WS 파이프라인을 통해 프런트엔드 Inspector에 추가 코드 없이 노출된다. 설계 검토 중 "동적 Collector가 도입하는 새 머신은 simulation_loop이 브로드캐스트하지 않아 대시보드에 보이지 않는다"는 기존 아키텍처의 제약을 발견해 비목표로 명시했고, 예시 플러그인은 이 문제가 없는 PipelineStage(`examples/plugins/example_pipeline_stage.py`)로 커밋했다.
 
-**목표:** Phase 1의 `CollectorRegistry.register()`/`PipelineRegistry.register()`에 `importlib` 기반 동적 모듈 로더를 추가한다. 프런트엔드(Phase 4)와 달리 Python은 브라우저 iframe 같은 손쉬운 프로세스 내 샌드박스가 없으므로, 격리 전략(별도 프로세스/서브프로세스 실행 + IPC, 아니면 신뢰 경계를 "로컬 파일시스템에 배치 가능한 사람"으로 한정하고 프로세스 격리는 하지 않는 절충안)을 Phase 4.5 자체 브레인스토밍에서 명시적으로 결정해야 한다.
+**목표 (브레인스토밍으로 해소됨):** Phase 1의 `CollectorRegistry.register()`/`PipelineRegistry.register()`에 `importlib` 기반 동적 모듈 로더를 추가한다. 프런트엔드(Phase 4)와 달리 Python은 브라우저 iframe 같은 손쉬운 프로세스 내 샌드박스가 없어 격리 전략(별도 프로세스/서브프로세스 실행 + IPC, 아니면 신뢰 경계를 "로컬 파일시스템에 배치 가능한 사람"으로 한정하고 프로세스 격리는 하지 않는 절충안)을 결정해야 했으나, 위 "실제 구현" 문단에 정리된 대로 신뢰 기반·프로세스 격리 없음으로 결정했다 — 상세는 `2026-07-28-plugin-platform-phase4-5-backend-dynamic-loading-design.md`의 격리 전략 섹션 참조.
 
 **의존관계:** Phase 1 완료 후에만 착수(로드맵 표에 이미 명시된 순서 제약).
 
