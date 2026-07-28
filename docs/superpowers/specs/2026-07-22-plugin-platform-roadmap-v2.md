@@ -1,7 +1,7 @@
 # SDF 오픈소스 플러그인 플랫폼 — 확장 로드맵 (v2)
 
 **Date:** 2026-07-22
-**Status:** Approved (roadmap), Phase 0 완료(머지됨, PR #4), Phase 1 완료(PR #5 리뷰 대기), Phase 2 완료(머지됨, PR #6), Phase 3a 완료(PR #7 리뷰 대기), Phase 3b 완료(구현 완료, PR 미생성)
+**Status:** Approved (roadmap), Phase 0 완료(머지됨, PR #4), Phase 1 완료(PR #5 리뷰 대기), Phase 2 완료(머지됨, PR #6), Phase 3a 완료(PR #7 리뷰 대기), Phase 3b 완료(구현 완료, PR 미생성), Phase 6 완료(구현 완료, PR 미생성), Phase 7 완료(구현 완료, PR 미생성), Phase 4 완료(구현 완료, PR 미생성)
 
 ---
 
@@ -24,7 +24,7 @@
 
 `@sdf/plugin-runtime` 패키지(`PluginRegistry`, `createPluginContext()`, `loadPlugins()`)를 신설하고, 기존에 정의만 되어 있던 `SDFPlugin`/`PluginContext`/`PluginPanel` 계약을 실제로 동작시켰다. 플러그인은 대시보드 패널 등록, 룰 등록, 계산 지표 등록을 할 수 있다. 패널은 `DashboardErrorBoundary`로 자동 격리되고, `PluginContext`는 `store.getState`/`store.subscribe`/`registerPanel`/`registerRule`/`registerMetric` 4개 키만 노출하는 화이트리스트 구조다. 구현 중 발견되어 수정된 실제 결함 3건(subscribe 바인딩의 store 누출, 내장 패널 id 충돌 시 orphan 등록, read-only 스냅샷의 참조 공유로 인한 라이브 스토어 오염)은 모두 회귀 테스트로 고정되었다.
 
-이후 Phase들이 재사용하는 자산: `PluginRegistry.register()`(Phase 4의 동적 로더가 재사용할 단일 진입점), 화이트리스트 컨텍스트 패턴(Phase 4에서 신뢰 경계로 재확인 필요), 자동 에러 격리 패턴(Phase 6 모니터링 대시보드의 데이터 소스).
+이후 Phase들이 재사용하는 자산: `PluginRegistry.register()`(Phase 4의 동적 로더가 실제로 재사용한 단일 진입점), 화이트리스트 컨텍스트 패턴(Phase 4에서 "실수 방지 장치"로 재정의됨 — 진짜 보안 경계가 아님을 확인, 상세는 Phase 4 설계 문서 참조), 자동 에러 격리 패턴(Phase 6 모니터링 대시보드의 데이터 소스).
 
 ---
 
@@ -111,7 +111,7 @@ installed_pipeline_stages: list[PipelineStage] = []
 ```typescript
 interface PluginProps {
   useStoreSlice: <T>(selector: (state: ReadonlyFactoryState) => T) => T  // Zustand 선택자 기반, 슬라이스 변경 시에만 리렌더
-  // 대용량 파싱은 Web Worker로 오프로드 — Phase 7의 MDF 파서 예시가 이 패턴을 실전 검증
+  // 대용량 파싱은 Web Worker로 오프로드 — Phase 7의 .sdfrec 파서 예시가 이 패턴을 실전 검증 (MDF 대신 자체 포맷으로 축소, 해당 Phase 참조)
 }
 ```
 2D 차트 플러그인은 `useStoreSlice`로 특정 머신의 히스토리만 구독, 위험 알림 로그 플러그인은 `rules`/`alerts` 슬라이스만 구독하는 식으로 검증한다. 두 플러그인 모두 `packages/ui`의 프리미티브 컴포넌트를 우선 사용해야 한다는 CONTRIBUTING.md의 기존 규칙을 그대로 따른다.
@@ -139,11 +139,15 @@ interface PluginProps {
 
 ---
 
-## Phase 4 — 프런트엔드 런타임 동적 주입 샌드박스
+## Phase 4 — 프런트엔드 런타임 동적 주입 샌드박스 (완료)
+
+**상태:** 구현 완료. 상세 설계는 `2026-07-26-plugin-platform-phase4-dynamic-plugin-injection-design.md`, 구현 계획은 `2026-07-26-plugin-platform-phase4-dynamic-plugin-injection-implementation.md` 참조.
+
+**실제 구현:** 위협 모델을 신뢰된 개발자 전용으로 확정하고(iframe 격리 불필요), `PluginRegistry.register()`를 그대로 재사용하는 `loadPluginFromURL(registry, url, ctx)`를 `loadPlugins()`와 공유하는 `registerPlugin`/`activateAndRecord` 헬퍼 위에 구현했다. 업로드 UI는 새 패널이 아니라 기존 `PluginInspectorPanel`에 통합했으며, `examples/plugins/machine-counter-plugin.js`를 시연용으로 커밋했다.
 
 **목표:** 재빌드 없이 `.js` 플러그인 파일을 업로드하면 `import()`로 런타임에 로드되어 즉시 활성화되는 기능. Phase 0의 `PluginRegistry.register()`를 그대로 재사용하고, 위에 `loadPluginFromURL(url, ctx)` 진입점만 추가한다 — 레지스트리의 공개 API는 바뀌지 않는다(Phase 0 설계 문서 §2.2에서 이미 이렇게 설계됨).
 
-**핵심 위험:** 이 Phase부터 실제로 신뢰할 수 없는 코드가 실행된다. Phase 0에서 만든 화이트리스트 `PluginContext`가 유일한 방어선이 되므로, Phase 4 착수 시 반드시 화이트리스트가 여전히 airtight한지 재검증해야 한다(예: 브라우저 전역 객체, `window`, 다른 스크립트로의 접근 경로가 없는지). 필요하면 `<iframe sandbox>` 또는 `Function` 생성자 기반 격리 컨텍스트 도입을 검토한다 — 이 결정은 Phase 4 자체 브레인스토밍에서 내린다.
+**핵심 위험 (브레인스토밍 결과로 해소됨):** 이 Phase부터 실제로 신뢰할 수 없는 코드가 실행될 수 있다는 우려로 시작했으나, `import()`로 로드된 모듈은 호스트와 동일한 JS 런타임에서 실행되므로 화이트리스트는 애초에 진짜 보안 경계가 될 수 없다는 점을 브레인스토밍에서 확인했다. 진짜 격리(`<iframe sandbox>`)는 모든 기존 플러그인이 의존하는 `PluginPanel.component`의 JSX 직접 반환 계약과 근본적으로 비호환이라 채택하지 않았다. 대신 사용 범위를 신뢰된 개발자·개발 환경·세션 한정으로 확정해 화이트리스트를 "실수 방지 장치"로 재정의했다 — 상세는 `2026-07-26-plugin-platform-phase4-dynamic-plugin-injection-design.md`의 위협 모델 섹션 참조.
 
 **의존관계:** Phase 0 필수. Phase 3의 인스펙터가 있으면 업로드된 플러그인의 스키마 검증에 재사용 가능(선택적 의존).
 
@@ -165,17 +169,25 @@ interface PluginProps {
 
 ---
 
-## Phase 6 — ErrorBoundary 기반 플러그인 모니터링 대시보드
+## Phase 6 — ErrorBoundary 기반 플러그인 모니터링 대시보드 (완료)
+
+**상태:** 구현 완료 — 아직 PR은 생성되지 않음(구현 검증까지 마친 다음 단계). 상세 설계는 `2026-07-24-plugin-platform-phase6-monitoring-dashboard-design.md`, 구현 계획은 `2026-07-25-plugin-platform-phase6-monitoring-dashboard-implementation.md` 참조.
 
 **목표:** Phase 0에서 자동으로 씌워지는 `DashboardErrorBoundary`가 지금은 에러를 인라인으로만 렌더링하고 어디에도 보고하지 않는다. Phase 6은 경계가 에러를 잡을 때 중앙 스토어(또는 Phase 3에서 설계된 인스펙터용 채널)로 보고하도록 확장하고, 그 이력을 보여주는 모니터링 패널을 추가한다. 백엔드 쪽(Phase 1의 `CollectorRegistry`/`PipelineRegistry` 에러 로그)도 같은 대시보드에 통합할지는 이 Phase의 브레인스토밍에서 결정한다.
+
+실제 구현: 백엔드는 `CollectorRegistry`/`PipelineRegistry`가 이미 쌓아 두던 에러 이력에서 신규 항목만 골라내는 순수 함수 `detect_new_plugin_errors()`를 추가해 `simulation_loop`(10Hz)에서 매 tick 호출, 새로 발생한 에러만 `plugin_error` WS 메시지로 push한다. 프런트엔드는 `DashboardErrorBoundary`에 `onError` prop을 추가해 렌더링 에러를 잡고, `PluginRegistry`가 패널별 렌더 에러 이력을 추적하도록 확장했다. `factoryStore`에 백엔드 에러 슬라이스를 추가해 `plugin_error` WS 메시지를 라우팅하고, `PluginInspectorPanel`이 프런트엔드 렌더 에러와 백엔드 플러그인 에러를 함께 보여주도록 확장했다.
 
 **의존관계:** Phase 0(에러 바운더리), 이상적으로 Phase 3(인스펙터의 에러 채널 재사용).
 
 ---
 
-## Phase 7 — 예시 플러그인 실전 구현 (엔드투엔드 검증)
+## Phase 7 — 예시 플러그인 실전 구현 (엔드투엔드 검증) (완료)
+
+**상태:** 구현 완료 — 아직 PR은 생성되지 않음(구현 검증까지 마친 다음 단계). 상세 설계는 `2026-07-26-plugin-platform-phase7-example-plugin-design.md`, 바이너리 포맷 자체의 독립 스펙은 `sdfrec-format-spec.md`, 구현 계획은 `2026-07-26-plugin-platform-phase7-example-plugin-implementation.md` 참조.
 
 **목표:** 지금까지의 모든 계약을 실전 수준 예시 하나로 엔드투엔드 검증한다. Web Worker 기반 초대용량 바이너리(MDF/DAT — 산업/자동차 계측 데이터 포맷) 파서를 "데이터 수집 플러그인" 예시로 구현: 프런트엔드에서 파일 업로드 → Web Worker에서 파싱(Phase 2의 Render-Bypass 패턴 실전 적용) → 파싱 결과를 백엔드 `Collector`가 소비하거나, 프런트엔드 전용이라면 `PluginPanel`이 직접 시각화. 정확한 데이터 흐름(풀스택인지 프런트엔드 전용인지)은 Phase 1/2 구현 결과를 보고 이 Phase 착수 시점에 결정한다.
+
+**실제 구현:** 브레인스토밍 중 실제 MDF4(ASAM 표준, 링크드 블록 그래프 + deflate 압축)는 이 Phase의 목적(플러그인 계약 검증)에 비해 과도하게 복잡하다고 판단해 제외하고, 이 앱 도메인에 맞는 간소화된 자체 바이너리 포맷(`.sdfrec`)을 새로 설계했다(`docs/sdfrec-format-spec.md`). 데이터 흐름도 프런트엔드 전용으로 확정 — 백엔드 `Collector` 연동은 하지 않는다. 자세한 사유는 설계 문서 §1 참조.
 
 **의존관계:** Phase 1, 2 완료 후 착수(이 둘의 계약을 실제로 스트레스 테스트하는 것이 이 Phase의 존재 이유이므로).
 
@@ -235,12 +247,34 @@ interface PluginProps {
 
 ---
 
+## 백로그 — CollectorRegistry/PipelineRegistry 에러 이력 무제한 누적
+
+**목표:** Phase 6(모니터링 대시보드) 설계 중 자체 검토에서 발견됨. 계속 실패하는 Collector/PipelineStage가 있으면 `_errors` 딕셔너리가 가동 시간에 비례해 무한정 커진다(`PipelineRegistry.run()`은 10Hz `simulation_loop`에서 머신마다 매 tick 호출되므로 실질적 위험이 Phase 2의 `_cache`/`_owner` 사례보다 큼). 항목 캡을 걸면 Phase 6의 diff 기반 실시간 push 메커니즘(리스트 길이를 "지난번 본 개수"와 비교)과 상호작용이 복잡해져(오래된 항목이 잘려나갈 때 인덱스가 어긋남), 이번 스코프에서는 캡 없이 진행.
+
+**착수 조건:** 장시간 가동 + 지속적으로 실패하는 스테이지/Collector가 실제 운영 이슈로 확인되면 착수. 캡을 걸 때는 diff 메커니즘을 위한 별도 단조증가 카운터를 함께 설계해야 함(캡된 저장 리스트와 별개로).
+
+**의존관계:** Phase 6 완료 후 언제든 독립적으로 착수 가능.
+
+---
+
+## 백로그 — 장시간 세션 녹화 기능
+
+**목표:** Phase 7(예시 플러그인) 브레인스토밍 중 논의되었으나 이번 스코프에서 제외됨. 화면용 `HISTORY_MAX`(300개) 캡과 별개로, 사용자가 "녹화 시작"을 누르면 그 이후 샘플을 캡 없이 별도 버퍼에 누적하다가 "녹화 종료" 시 `.sdfrec`로 다운로드하는 기능.
+
+**제외 이유:** 이 앱은 실시간 모니터링에 초점이 맞춰져 있고, 장시간 원본 데이터 녹화는 사후 분석(오프라인 데이터 분석) 목적의 별개 기능이다. 구현하려면 새 스토어 상태(녹화 중 여부, 누적 버퍼)와 시작/종료 UI 컨트롤이 필요해 스코프가 커진다.
+
+**착수 조건:** 실제로 장시간 세션 분석이 필요한 구체적 요구가 생기면 착수.
+
+**의존관계:** Phase 7 완료 후 언제든 독립적으로 착수 가능.
+
+---
+
 ## 전체 의존관계 요약
 
 ```
-Phase 0 (완료, 머지됨) ──┬──▶ Phase 2 (완료, 머지됨) ──▶ Phase 7 ◀── Phase 1 (완료, PR 리뷰 대기)
-                        ├──▶ Phase 3a (완료, PR 리뷰 대기) ──▶ Phase 3b (완료, PR 미생성) ──▶ Phase 6
-                        ├──▶ Phase 4                                       │
+Phase 0 (완료, 머지됨) ──┬──▶ Phase 2 (완료, 머지됨) ──▶ Phase 7 (완료, PR 미생성) ◀── Phase 1 (완료, PR 리뷰 대기)
+                        ├──▶ Phase 3a (완료, PR 리뷰 대기) ──▶ Phase 3b (완료, PR 미생성) ──▶ Phase 6 (완료, PR 미생성)
+                        ├──▶ Phase 4 (완료, PR 미생성)                        │
                         └──▶ Phase 5                                       ▼
                                                                       Phase 4.5
 
@@ -250,4 +284,5 @@ Phase 0~7 전체 ──▶ Phase 8 ──▶ Phase 9
 백로그(Quadtree): 무관, 수요 발생 시 착수
 백로그(subscribe clone 비용): Phase 2 완료 후 언제든, 실측 후 착수
 백로그(Inspector rule/metric 개수): Phase 3b 완료 후 언제든, 구체적 필요 발생 시 착수
+백로그(장시간 세션 녹화): Phase 7 완료 후 언제든, 구체적 필요 발생 시 착수
 ```

@@ -134,3 +134,66 @@ describe("PluginRegistry — introspection", () => {
     ])
   })
 })
+
+describe("PluginRegistry — render errors", () => {
+  it("getRenderErrors() returns an empty array for a panel with no recorded errors", () => {
+    const registry = new PluginRegistry()
+    expect(registry.getRenderErrors("demo")).toEqual([])
+  })
+
+  it("recordRenderError() adds an entry retrievable via getRenderErrors() and getAllRenderErrors()", () => {
+    const registry = new PluginRegistry()
+    registry.recordRenderError("demo", { message: "boom", ts: 123 })
+    expect(registry.getRenderErrors("demo")).toEqual([{ message: "boom", ts: 123 }])
+    expect(registry.getAllRenderErrors()).toEqual(new Map([["demo", [{ message: "boom", ts: 123 }]]]))
+  })
+
+  it("getRenderErrors()/getAllRenderErrors() return defensive copies", () => {
+    const registry = new PluginRegistry()
+    registry.recordRenderError("demo", { message: "boom", ts: 1 })
+    const errors = registry.getRenderErrors("demo")
+    errors.push({ message: "mutated", ts: 2 })
+    expect(registry.getRenderErrors("demo")).toEqual([{ message: "boom", ts: 1 }])
+  })
+
+  it("getPanelComponents() records a render error when a panel component throws", () => {
+    vi.spyOn(console, "error").mockImplementation(() => {})
+    const registry = new PluginRegistry()
+    registry.registerPanelComponent("boom", () => {
+      throw new Error("plugin exploded")
+    })
+    const panels = registry.getPanelComponents(fakeProps)
+    render(<div>{panels["boom"]}</div>)
+    expect(registry.getRenderErrors("boom")).toEqual([
+      { message: "plugin exploded", ts: expect.any(Number) },
+    ])
+  })
+
+  it("accumulates multiple recordRenderError() calls for the same panelId", () => {
+    const registry = new PluginRegistry()
+    registry.recordRenderError("demo", { message: "first", ts: 1 })
+    registry.recordRenderError("demo", { message: "second", ts: 2 })
+    expect(registry.getRenderErrors("demo")).toEqual([
+      { message: "first", ts: 1 },
+      { message: "second", ts: 2 },
+    ])
+  })
+
+  it("does not lose or double-record a render error across repeated getPanelComponents() calls (simulating host re-renders)", () => {
+    vi.spyOn(console, "error").mockImplementation(() => {})
+    const registry = new PluginRegistry()
+    registry.registerPanelComponent("boom", () => {
+      throw new Error("plugin exploded")
+    })
+
+    const { rerender } = render(<div>{registry.getPanelComponents(fakeProps)["boom"]}</div>)
+    expect(registry.getRenderErrors("boom")).toHaveLength(1)
+
+    // Simulate a second host render: getPanelComponents() is called again,
+    // producing a brand-new onError closure and a brand-new child element,
+    // but at the same tree position — the boundary must not remount and
+    // must not re-invoke (and thus re-record) the already-caught error.
+    rerender(<div>{registry.getPanelComponents(fakeProps)["boom"]}</div>)
+    expect(registry.getRenderErrors("boom")).toHaveLength(1)
+  })
+})

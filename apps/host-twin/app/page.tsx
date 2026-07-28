@@ -20,7 +20,7 @@ import { PluginInspectorPanel } from "@/components/PluginInspectorPanel"
 import { DashboardErrorBoundary } from "@sdf/ui"
 import { LayoutControlBar, LayoutGrid } from "@/components/LayoutManager"
 import { useFactoryStore } from "@/store/factoryStore"
-import { bootstrapPlugins, pluginRegistry, pluginProps } from "@/lib/pluginBootstrap"
+import { bootstrapPlugins, pluginRegistry, pluginProps, pluginContext } from "@/lib/pluginBootstrap"
 import type { LayoutPanelId } from "@sdf/types"
 
 const WS_URL = process.env.NEXT_PUBLIC_WS_URL ?? "ws://localhost:8000/ws"
@@ -52,6 +52,7 @@ export default function Home() {
 
   const selectedId = useFactoryStore((s) => s.selectedEntityId)
   const placedEntities = useFactoryStore((s) => s.placedEntities)
+  const backendPluginErrors = useFactoryStore((s) => s.backendPluginErrors)
   const placedMachines = placedEntities.filter((e) => e.type !== "robot")
 
   const selectedEntity = placedEntities.find((e) => e.id === selectedId)
@@ -117,7 +118,12 @@ export default function Home() {
 
     inspector: (
       <DashboardErrorBoundary label="플러그인 인스펙터">
-        <PluginInspectorPanel key={pluginsReady ? "ready" : "loading"} registry={pluginRegistry} />
+        <PluginInspectorPanel
+          key={pluginsReady ? "ready" : "loading"}
+          registry={pluginRegistry}
+          pluginContext={pluginContext}
+          backendErrors={backendPluginErrors}
+        />
       </DashboardErrorBoundary>
     ),
 

@@ -114,6 +114,13 @@ export interface ComponentFaultMap {
   }>
 }
 
+export interface PluginErrorEvent {
+  source: "collector" | "pipeline_stage"
+  id: string
+  message: string
+  ts: number
+}
+
 export type WSMessage =
   | { type: "sensor_update";    payload: SensorSnapshot }
   | { type: "robot_dispatch";   payload: DispatchCommand }
@@ -122,6 +129,7 @@ export type WSMessage =
   | { type: "machine_detail";   payload: MachineDetail }
   | { type: "robot_path";       payload: RobotPathDetail }
   | { type: "component_fault";  payload: ComponentFaultMap }
+  | { type: "plugin_error";     payload: PluginErrorEvent }
 
 // ─── Dashboard & Plugin Metadata Schema ─────────────────────────
 
