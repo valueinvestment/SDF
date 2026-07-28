@@ -18,10 +18,11 @@ function buildSyncPayload(entities: PlacedEntity[]) {
   }
 }
 
-export type WsStatus = "connecting" | "connected" | "disconnected" | "error"
+export type WsStatus = "connecting" | "connected" | "disconnected" | "error" | "demo"
 
 export function useWebSocket(
   url: string,
+  demoMode: boolean,
   robotPosRef?: React.MutableRefObject<RobotPositionRef>,
   machineGroupsRef?: React.MutableRefObject<MachineGroupRef>,
   updatePathLine?: (robotId: string, path: [number, number][]) => void,
@@ -40,6 +41,13 @@ export function useWebSocket(
 
   useEffect(() => {
     let active = true
+
+    if (demoMode) {
+      setStatus("demo")
+      const ws = wsRef.current
+      if (ws) { ws.close(); wsRef.current = null }
+      return () => { active = false }
+    }
 
     const connect = () => {
       if (!active) return
@@ -175,7 +183,7 @@ export function useWebSocket(
         ws.close()
       }
     }
-  }, [url])
+  }, [url, demoMode])
 
   return { status }
 }
