@@ -40,14 +40,21 @@ export function useWebSocket(
   const [status, setStatus] = useState<WsStatus>("connecting")
 
   useEffect(() => {
-    let active = true
-
     if (demoMode) {
       setStatus("demo")
       const ws = wsRef.current
-      if (ws) { ws.close(); wsRef.current = null }
-      return () => { active = false }
+      if (ws) {
+        if (ws.readyState === WebSocket.CONNECTING) {
+          ws.onopen = () => ws.close()
+        } else {
+          ws.close()
+        }
+        wsRef.current = null
+      }
+      return
     }
+
+    let active = true
 
     const connect = () => {
       if (!active) return
