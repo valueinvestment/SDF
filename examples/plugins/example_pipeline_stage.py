@@ -20,7 +20,7 @@ from simulator.models import MachineState
 
 class ExampleVibrationThresholdStage:
     """진동이 임계값을 넘으면 상태를 fault로 전환하는 최소 예시 PipelineStage.
-    임계값(60)은 정상 범위(20~80)의 중간값으로, 데모가 몇 초 안에 보이도록
+    임계값(60)은 정상 범위(20~80) 안에서 데모가 몇 초 안에 보이도록
     일부러 낮게 잡았다 — 실제 산업 안전 임계값이 아니다. 기존
     tests/test_plugin_integration.py의 ThresholdFaultStage와 같은 패턴이다.
     main.py의 anomaly_detected 발화 로직은 "fault로의 전이"만 감지하므로,
