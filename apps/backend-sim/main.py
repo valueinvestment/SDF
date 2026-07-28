@@ -16,6 +16,8 @@ from plugins.collector_registry import CollectorRegistry
 from plugins.pipeline_registry import PipelineRegistry
 from plugins.installed import build_installed_collectors, installed_pipeline_stages
 from plugins.error_detection import detect_new_plugin_errors
+from pathlib import Path
+from plugins.dynamic_loader import dynamic_loader_loop
 
 load_dotenv()
 
@@ -34,6 +36,8 @@ for _collector in build_installed_collectors(simulator):
     collector_registry.register(_collector)
 for _stage in installed_pipeline_stages:
     pipeline_registry.register(_stage)
+
+UPLOADED_PLUGINS_DIR = Path(__file__).parent / "plugins" / "uploaded"
 
 _last_status: dict[str, str] = {}
 _last_collector_error_counts: dict[str, int] = {}
@@ -138,6 +142,7 @@ async def lifespan(app):
         asyncio.create_task(broadcast_loop()),
         asyncio.create_task(orchestrator.start()),
         asyncio.create_task(detail_loop()),
+        asyncio.create_task(dynamic_loader_loop(UPLOADED_PLUGINS_DIR, collector_registry, pipeline_registry)),
     ]
     yield
     collector_registry.stop_all()
