@@ -33,8 +33,9 @@ export default function Home() {
     updateRobotPath, updateComponentFault,
     applyMeshOverlay,
   } = useThreeScene(canvasRef)
+  const demoMode = useFactoryStore((s) => s.demoMode)
   const { status: wsStatus } = useWebSocket(
-    WS_URL, robotPosRef, machineGroupsRef,
+    WS_URL, demoMode, robotPosRef, machineGroupsRef,
     updatePathLine, clearPathLine, updateComponentFault, updateRobotPath,
   )
 
@@ -142,11 +143,13 @@ export default function Home() {
         <span className={`text-xs px-2 py-0.5 rounded-full font-mono ${
           wsStatus === "connected"  ? "bg-green-900 text-green-400" :
           wsStatus === "connecting" ? "bg-yellow-900 text-yellow-400" :
+          wsStatus === "demo"       ? "bg-purple-900 text-purple-400" :
           wsStatus === "error"      ? "bg-red-900 text-red-400" :
                                       "bg-gray-800 text-gray-500"
         }`}>
           {wsStatus === "connected"  ? "● 연결됨" :
            wsStatus === "connecting" ? "○ 연결 중..." :
+           wsStatus === "demo"       ? "🎬 데모 모드" :
            wsStatus === "error"      ? "✕ 오류" : "✕ 연결 끊김"}
         </span>
 

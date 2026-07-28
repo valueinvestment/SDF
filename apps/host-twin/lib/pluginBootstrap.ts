@@ -41,6 +41,7 @@ export function createHostBindings(): PluginContextBindings {
     addComputedMetric: (metric) => useFactoryStore.getState().addComputedMetric(metric),
     registerPanelPosition: (id, label, pos) =>
       useFactoryStore.getState().registerPluginPanel(id, label, pos),
+    setDemoMode: (enabled) => useFactoryStore.getState().setDemoMode(enabled),
   }
 }
 
