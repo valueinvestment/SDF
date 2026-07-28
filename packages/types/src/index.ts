@@ -325,9 +325,9 @@ export interface PluginProps {
    * Turns demo mode on or off. When on, the host skips connecting to the
    * real backend WebSocket and the pre-existing frontend-only mock simulator
    * (`useSimulator`) takes over automatically — this method only flips that
-   * switch, it doesn't generate any data itself. This is the first write
-   * capability ever exposed on `PluginProps`, so it's kept narrow and
-   * purpose-specific (not a general dispatch mechanism).
+   * switch, it doesn't generate any data itself. Intentionally narrow and
+   * purpose-specific rather than a generic dispatch mechanism, to keep
+   * `PluginProps`'s write surface easy to reason about.
    */
   setDemoMode: (enabled: boolean) => void
 }
