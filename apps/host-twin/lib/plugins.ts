@@ -6,8 +6,9 @@ import { demoControllerPlugin } from "@/plugins/demoControllerPlugin"
 
 /**
  * Statically installed plugins. Add imported plugin objects to this array
- * to activate them at app boot. (Phase 4 will add a dynamic loader that
- * calls the same PluginRegistry.register() entry point at runtime.)
+ * to activate them at app boot. Phase 4 added a dynamic loader that calls
+ * the same PluginRegistry.register() entry point at runtime for uploaded
+ * .js files, on top of this static list.
  */
 export const installedPlugins: SDFPlugin[] = [
   sensorChartPlugin,
