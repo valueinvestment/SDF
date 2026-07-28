@@ -10,6 +10,7 @@ beforeEach(() => {
     backendPluginErrors: [],
     activeAlert: null,
     dispatchCommand: null,
+    demoMode: false,
     placedEntities: [],
     placementMode: null,
     selectedEntityId: null,
