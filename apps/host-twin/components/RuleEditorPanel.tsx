@@ -8,10 +8,13 @@
  * - Webhook URL 및 채널 타입 입력 (Slack / Discord)
  */
 
-import { useState } from "react"
+import { useState, type DragEvent } from "react"
 import { useFactoryStore } from "@/store/factoryStore"
-import { validateFormula } from "@sdf/core-sdk"
+import { validateFormula, listAvailableVariables } from "@sdf/core-sdk"
 import type { RuleAction, RuleActionType } from "@sdf/types"
+
+const MACHINE_DRAG_TYPE = "application/x-sdf-machine"
+const RULE_DRAG_TYPE = "application/x-sdf-rule"
 
 const ACTION_LABELS: Record<RuleActionType, string> = {
   overlay_color: "3D 색상 오버레이",
@@ -25,6 +28,9 @@ export function RuleEditorPanel() {
   const addRule = useFactoryStore((s) => s.addRule)
   const removeRule = useFactoryStore((s) => s.removeRule)
   const updateRule = useFactoryStore((s) => s.updateRule)
+  const placedEntities = useFactoryStore((s) => s.placedEntities)
+  const computedMetrics = useFactoryStore((s) => s.computedMetrics)
+  const machines = placedEntities.filter((e) => e.type !== "robot")
 
   const [name, setName] = useState("")
   const [condition, setCondition] = useState("")
@@ -35,6 +41,8 @@ export function RuleEditorPanel() {
   const [webhookUrl, setWebhookUrl] = useState("")
   const [webhookChannel, setWebhookChannel] = useState<"slack" | "discord">("slack")
   const [cooldownSec, setCooldownSec] = useState("10")
+  const [draftMachineId, setDraftMachineId] = useState<string | null>(null)
+  const [draftDropActive, setDraftDropActive] = useState(false)
 
   const handleConditionChange = (v: string) => {
     setCondition(v)
@@ -67,7 +75,7 @@ export function RuleEditorPanel() {
     addRule({
       name: name.trim(),
       condition: condition.trim(),
-      machineId: null,
+      machineId: draftMachineId,
       actions: buildActions(),
       cooldownMs: (parseInt(cooldownSec) || 10) * 1000,
       enabled: true,
@@ -75,6 +83,7 @@ export function RuleEditorPanel() {
     setName("")
     setCondition("")
     setCondError(null)
+    setDraftMachineId(null)
   }
 
   return (
@@ -82,6 +91,22 @@ export function RuleEditorPanel() {
       <p className="text-[10px] text-orange-400 uppercase tracking-widest font-semibold">
         동적 룰 엔진
       </p>
+
+      <div className="flex flex-wrap gap-1">
+        {machines.map((m) => (
+          <div
+            key={m.id}
+            draggable
+            onDragStart={(e: DragEvent<HTMLDivElement>) => {
+              e.dataTransfer.setData(MACHINE_DRAG_TYPE, JSON.stringify({ machineId: m.id, label: m.label }))
+              e.dataTransfer.effectAllowed = "copy"
+            }}
+            className="text-[10px] px-1.5 py-0.5 rounded bg-gray-800 text-gray-300 border border-gray-700 cursor-grab active:cursor-grabbing"
+          >
+            🏭 {m.label}
+          </div>
+        ))}
+      </div>
 
       {/* 기존 룰 목록 */}
       {rules.length > 0 && (
@@ -126,6 +151,42 @@ export function RuleEditorPanel() {
           placeholder="룰 이름 (e.g. 고온 경보)"
           className="w-full bg-gray-900 text-xs text-gray-200 rounded px-2 py-1 border border-gray-700 focus:border-orange-600 outline-none"
         />
+        <div
+          data-testid="rule-draft-dropzone"
+          onDragOver={(e: DragEvent<HTMLDivElement>) => {
+            if (!e.dataTransfer.types.includes(MACHINE_DRAG_TYPE)) return
+            e.preventDefault()
+            setDraftDropActive(true)
+          }}
+          onDragLeave={() => setDraftDropActive(false)}
+          onDrop={(e: DragEvent<HTMLDivElement>) => {
+            if (!e.dataTransfer.types.includes(MACHINE_DRAG_TYPE)) return
+            e.preventDefault()
+            setDraftDropActive(false)
+            const raw = e.dataTransfer.getData(MACHINE_DRAG_TYPE)
+            if (!raw) return
+            const { machineId } = JSON.parse(raw) as { machineId: string; label: string }
+            setDraftMachineId(machineId)
+          }}
+          className={`text-[10px] rounded px-2 py-1 border border-dashed ${
+            draftDropActive ? "border-orange-500 bg-orange-950/30" : "border-gray-700 text-gray-500"
+          }`}
+        >
+          {draftMachineId ? (
+            <span className="flex items-center gap-1 text-gray-300">
+              대상: {machines.find((m) => m.id === draftMachineId)?.label ?? draftMachineId}
+              <button
+                data-testid="rule-draft-target-clear"
+                onClick={() => setDraftMachineId(null)}
+                className="text-gray-600 hover:text-red-400"
+              >
+                ✕
+              </button>
+            </span>
+          ) : (
+            "여기로 머신을 드래그하면 대상 지정 (기본: 전체)"
+          )}
+        </div>
         <div>
           <input
             value={condition}
