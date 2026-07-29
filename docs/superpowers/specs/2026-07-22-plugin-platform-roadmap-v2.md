@@ -1,7 +1,7 @@
 # SDF 오픈소스 플러그인 플랫폼 — 확장 로드맵 (v2)
 
 **Date:** 2026-07-22
-**Status:** Approved (roadmap), Phase 0 완료(머지됨, PR #4), Phase 1 완료(PR #5 리뷰 대기), Phase 2 완료(머지됨, PR #6), Phase 3a 완료(PR #7 리뷰 대기), Phase 3b 완료(구현 완료, PR 미생성), Phase 6 완료(구현 완료, PR 미생성), Phase 7 완료(구현 완료, PR 미생성), Phase 4 완료(구현 완료, PR 미생성), Phase 4.5 완료(구현 완료, PR 미생성)
+**Status:** Approved (roadmap). Phase 0~7(3a/3b, 4.5, 5a/5b 포함) 전부 완료·`main` 병합. Phase 8도 완료(커밋 `646ffa7`). 남은 것: Phase 9(이력서 어필 문서), 병행 트랙(WebGL 회귀 테스트, 미착수), 백로그 7건. (2026-07-29 기준 — 개별 PR 병합 이력은 각 Phase 절 참조, 이 줄은 요약만 유지)
 
 ---
 
@@ -205,11 +205,17 @@ interface PluginProps {
 
 ---
 
-## Phase 8 — 문서 갱신 (README / HOW_TO_RUN / CONTRIBUTING)
+## Phase 8 — 문서 갱신 (README / HOW_TO_RUN / CONTRIBUTING) (완료)
+
+**상태:** 구현 완료, 커밋 `646ffa7`.
 
 **목표:** Phase 0~7 전체가 끝난 뒤, 실제 구현된 플러그인 시스템을 반영해 오픈소스 기여자 온보딩 문서를 다시 쓴다. `CONTRIBUTING.md`의 "플러그인 기여 시 유의사항" 절을 프런트엔드/백엔드 플러그인 작성법(각 Phase의 `installed.ts`/`installed.py` 편집법, 테스트 컨벤션)으로 구체화한다. 이 세션에서 이미 발견된 CONTRIBUTING.md의 브랜치 전략 불일치(§별도 확정 완료 — `develop` 브랜치 제거, `main` 직접 기반으로 수정)도 이 시점에 재확인한다.
 
-**의존관계:** Phase 0~7 전체 완료 후.
+**실제 구현:** 브레인스토밍에서 "전면 재작성 vs 부분 확장" 중 부분 확장을 택했다 — README/HOW_TO_RUN/CONTRIBUTING은 이미 정확하고 잘 정리돼 있어서, 누락된 플러그인 시스템 절만 추가하는 쪽이 리스크가 적다고 판단(이력서 어필용 서사는 별도 목적의 Phase 9 문서로 이미 분리돼 있어 README를 그 용도로 겸용할 필요가 없었음). README에 "확장 가능한 플러그인 플랫폼" 기능 불릿 + 플러그인 개발 절 확장, HOW_TO_RUN에 "Plugins" 절 신설(스캐폴드/동적 로딩 테스트/데모 모드), CONTRIBUTING의 2줄짜리 플러그인 절을 프런트엔드/백엔드 기여 절차·화이트리스트 API 목록·보안 경계 아님 명시·테스트 컨벤션으로 확장. `apps/backend-sim/plugins/installed.py`의 미래시제로 남아있던 stale 주석(Phase 4.5를 "will add"로 서술)도 같이 고쳤다 — Phase 5b에서 고쳤던 `plugins.ts`의 동일 패턴 재발.
+
+**검증:** 별도 서브에이전트로 사실 확인 리뷰를 돌려 문서에 적힌 모든 명령어·경로·API 목록을 실제 소스와 대조 — 전부 일치(오탈자 없음). 리뷰가 지적한 비차단 스타일 이슈 2건(README 플러그인 절이 주변 대비 장황함, HOW_TO_RUN이 목적이 다른 두 예시 파일을 동일 선상에 나열)은 반영해 다듬었다.
+
+**의존관계:** Phase 0~7 전체 완료 후. (2026-07-29, Phase 5b 완료로 이 조건이 충족되어 착수)
 
 ---
 
@@ -314,7 +320,7 @@ Phase 0 (완료, 머지됨) ──┬──▶ Phase 2 (완료, 머지됨) ─�
                         └──▶ Phase 5                                       ▼
                                                           Phase 4.5 (완료, PR 미생성)
 
-Phase 0~7 전체 ──▶ Phase 8 ──▶ Phase 9
+Phase 0~7 전체 (완료) ──▶ Phase 8 (완료) ──▶ Phase 9 (미착수)
 
 병행 트랙(회귀 테스트): Phase 0~1과 동시 시작, 이후 전 Phase의 안전망
 백로그(Quadtree): 무관, 수요 발생 시 착수
