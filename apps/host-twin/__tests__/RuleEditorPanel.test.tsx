@@ -142,7 +142,7 @@ describe("RuleEditorPanel — C: drag a saved rule onto a machine chip", () => {
     seedRule({ machineId: "M1" })
     render(<RuleEditorPanel />)
 
-    expect(screen.getByText("🏭 프레스")).toBeInTheDocument()
+    expect(screen.getByTestId("rule-scope-badge-rule-1")).toBeInTheDocument()
 
     fireEvent.click(screen.getByTestId("rule-scope-clear-rule-1"))
 

@@ -166,7 +166,7 @@ export function RuleEditorPanel() {
                 ))}
               </div>
               {rule.machineId && (
-                <div className="pl-5 mt-1">
+                <div className="pl-5 mt-1" data-testid={`rule-scope-badge-${rule.id}`}>
                   <span className="inline-flex items-center gap-1 text-[9px] px-1 py-0.5 rounded bg-gray-800 text-gray-400">
                     <span aria-hidden="true">🏭</span>{" "}
                     {machines.find((m) => m.id === rule.machineId)?.label ?? rule.machineId}
