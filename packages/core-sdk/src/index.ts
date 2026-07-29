@@ -2,6 +2,7 @@ export {
   evaluateFormula,
   evaluateCondition,
   validateFormula,
+  listAvailableVariables,
 } from "./formulaEngine"
 
 export {

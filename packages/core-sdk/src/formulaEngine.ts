@@ -8,7 +8,8 @@
  * Comparisons: > < >= <= == != (boolean → 0/1)
  */
 
-import type { FormulaResult } from "@sdf/types"
+import type { FormulaResult, ComputedMetric } from "@sdf/types"
+import { BASE_RULE_VARIABLES } from "@sdf/types"
 
 // ── Tokenizer ────────────────────────────────────────────────────
 
@@ -186,9 +187,32 @@ export function evaluateCondition(
   return result.ok ? result.value !== 0 : false
 }
 
-export function validateFormula(formula: string): { valid: boolean; error?: string } {
-  const sampleVars = { vibration: 1, temperature: 1, current: 1 }
+export function validateFormula(
+  formula: string,
+  extraVariableNames: readonly string[] = [],
+): { valid: boolean; error?: string } {
+  const sampleVars: Record<string, number> = {}
+  for (const name of BASE_RULE_VARIABLES) sampleVars[name] = 1
+  for (const name of extraVariableNames) sampleVars[name] = 1
   const result = evaluateFormula(formula, sampleVars)
   if (result.ok) return { valid: true }
   return { valid: false, error: result.error }
+}
+
+/**
+ * 주어진 머신 스코프(machineId)에서 룰 조건/지표 수식에 쓸 수 있는
+ * 변수 이름 목록을 반환한다 — 기본 센서 변수 + 스코프에 맞는 커스텀 지표.
+ * RuleEditorPanel의 변수 드롭다운, FormulaEditor의 힌트 문구/검증이
+ * 모두 이 함수 하나를 통해 "쓸 수 있는 변수가 무엇인가"를 정의한다.
+ */
+export function listAvailableVariables(
+  machineId: string | null,
+  computedMetrics: ComputedMetric[],
+): string[] {
+  return [
+    ...BASE_RULE_VARIABLES,
+    ...computedMetrics
+      .filter((m) => m.machineId === null || m.machineId === machineId)
+      .map((m) => m.id),
+  ]
 }

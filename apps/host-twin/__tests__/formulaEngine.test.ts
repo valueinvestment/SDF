@@ -3,7 +3,10 @@ import {
   evaluateFormula,
   evaluateCondition,
   validateFormula,
+  listAvailableVariables,
 } from "@sdf/core-sdk"
+import { BASE_RULE_VARIABLES } from "@sdf/types"
+import type { ComputedMetric } from "@sdf/types"
 
 const SENSORS = { vibration: 50, temperature: 120, current: 15 }
 
@@ -63,5 +66,52 @@ describe("validateFormula", () => {
     const r = validateFormula("nonsense(")
     expect(r.valid).toBe(false)
     expect(r.error).toBeTruthy()
+  })
+})
+
+describe("validateFormula — extraVariableNames", () => {
+  it("rejects a computed-metric name when not passed as an extra variable (pre-existing bug, locked in as current behavior)", () => {
+    const r = validateFormula("heat_index > 50")
+    expect(r.valid).toBe(false)
+  })
+
+  it("accepts a computed-metric name when passed via extraVariableNames", () => {
+    const r = validateFormula("heat_index > 50", ["heat_index"])
+    expect(r.valid).toBe(true)
+  })
+
+  it("still validates base variables without any extraVariableNames", () => {
+    expect(validateFormula("temperature > 100").valid).toBe(true)
+  })
+})
+
+describe("listAvailableVariables", () => {
+  const metrics: ComputedMetric[] = [
+    { id: "heat_index", name: "열지수", formula: "(vibration+temperature)/2", color: "#fff", machineId: null },
+    { id: "m1_only", name: "M1 전용", formula: "current * 2", color: "#fff", machineId: "M1" },
+    { id: "m2_only", name: "M2 전용", formula: "current * 3", color: "#fff", machineId: "M2" },
+  ]
+
+  it("always includes the base variables", () => {
+    const result = listAvailableVariables(null, [])
+    expect(result).toEqual([...BASE_RULE_VARIABLES])
+  })
+
+  it("includes global (machineId: null) computed metrics regardless of scope", () => {
+    const result = listAvailableVariables("M1", metrics)
+    expect(result).toContain("heat_index")
+  })
+
+  it("includes only the computed metrics scoped to the given machine, not other machines'", () => {
+    const result = listAvailableVariables("M1", metrics)
+    expect(result).toContain("m1_only")
+    expect(result).not.toContain("m2_only")
+  })
+
+  it("includes only global computed metrics when machineId is null", () => {
+    const result = listAvailableVariables(null, metrics)
+    expect(result).toContain("heat_index")
+    expect(result).not.toContain("m1_only")
+    expect(result).not.toContain("m2_only")
   })
 })
