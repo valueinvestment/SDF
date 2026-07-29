@@ -7,9 +7,9 @@
  * - 생성된 지표는 SensorChart에 추가 시리즈로 바인딩됨
  */
 
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { useFactoryStore } from "@/store/factoryStore"
-import { validateFormula } from "@sdf/core-sdk"
+import { validateFormula, listAvailableVariables } from "@sdf/core-sdk"
 
 const DEFAULT_COLORS = ["#06b6d4", "#84cc16", "#f43f5e", "#a78bfa", "#fbbf24"]
 
@@ -19,8 +19,10 @@ interface Props {
 }
 
 export function FormulaEditor({ machineId, label }: Props) {
-  const metrics = useFactoryStore((s) =>
-    s.computedMetrics.filter((m) => m.machineId === null || m.machineId === machineId)
+  const allComputedMetrics = useFactoryStore((s) => s.computedMetrics)
+  const metrics = useMemo(
+    () => allComputedMetrics.filter((m) => m.machineId === null || m.machineId === machineId),
+    [allComputedMetrics, machineId]
   )
   const addComputedMetric = useFactoryStore((s) => s.addComputedMetric)
   const removeComputedMetric = useFactoryStore((s) => s.removeComputedMetric)
@@ -30,16 +32,18 @@ export function FormulaEditor({ machineId, label }: Props) {
   const [color, setColor] = useState(DEFAULT_COLORS[0])
   const [error, setError] = useState<string | null>(null)
 
+  const availableVars = listAvailableVariables(machineId, metrics)
+
   const handleFormulaChange = (v: string) => {
     setFormula(v)
     if (!v.trim()) { setError(null); return }
-    const result = validateFormula(v)
+    const result = validateFormula(v, availableVars)
     setError(result.valid ? null : (result.error ?? "유효하지 않은 수식"))
   }
 
   const handleAdd = () => {
     if (!name.trim() || !formula.trim()) return
-    const check = validateFormula(formula)
+    const check = validateFormula(formula, availableVars)
     if (!check.valid) { setError(check.error ?? "수식 오류"); return }
     addComputedMetric({ name: name.trim(), formula: formula.trim(), color, machineId })
     setName("")
@@ -103,7 +107,7 @@ export function FormulaEditor({ machineId, label }: Props) {
         </div>
         {error && <p className="text-[10px] text-red-400">{error}</p>}
         <p className="text-[10px] text-gray-600">
-          변수: vibration, temperature, current · 함수: abs(), sqrt(), min(a,b), max(a,b)
+          변수: {availableVars.join(", ")} · 함수: abs(), sqrt(), min(a,b), max(a,b)
         </p>
         <button
           onClick={handleAdd}
