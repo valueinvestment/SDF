@@ -238,4 +238,34 @@ describe("RuleEditorPanel — B: simple condition builder mode", () => {
     expect(screen.getByDisplayValue("vibration")).toBeInTheDocument()
     expect(screen.getByDisplayValue("<")).toBeInTheDocument()
   })
+
+  it("re-validates the condition when the draft target changes, catching a now-out-of-scope variable", () => {
+    useFactoryStore.setState({
+      computedMetrics: [
+        { id: "m1_only", name: "M1 전용", formula: "current * 2", color: "#fff", machineId: "M1" },
+      ],
+    })
+    render(<RuleEditorPanel />)
+
+    const dropzone = screen.getByTestId("rule-draft-dropzone")
+
+    const chipM1 = screen.getByText("🏭 프레스")
+    const dtM1 = makeDataTransfer({ "application/x-sdf-machine": JSON.stringify({ machineId: "M1", label: "프레스" }) })
+    fireEvent.dragStart(chipM1, { dataTransfer: dtM1 })
+    fireEvent.dragOver(dropzone, { dataTransfer: dtM1 })
+    fireEvent.drop(dropzone, { dataTransfer: dtM1 })
+
+    fireEvent.change(screen.getByTestId("rule-simple-var"), { target: { value: "m1_only" } })
+
+    const chipM2 = screen.getByText("🏭 CNC")
+    const dtM2 = makeDataTransfer({ "application/x-sdf-machine": JSON.stringify({ machineId: "M2", label: "CNC" }) })
+    fireEvent.dragStart(chipM2, { dataTransfer: dtM2 })
+    fireEvent.dragOver(dropzone, { dataTransfer: dtM2 })
+    fireEvent.drop(dropzone, { dataTransfer: dtM2 })
+
+    fireEvent.change(screen.getByPlaceholderText("룰 이름 (e.g. 고온 경보)"), { target: { value: "잘못된 룰" } })
+    fireEvent.click(screen.getByText("룰 추가"))
+
+    expect(useFactoryStore.getState().rules).toHaveLength(0)
+  })
 })

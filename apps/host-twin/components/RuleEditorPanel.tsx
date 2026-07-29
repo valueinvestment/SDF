@@ -59,13 +59,20 @@ export function RuleEditorPanel() {
   const [simpleOp, setSimpleOp] = useState<ComparisonOp>(">")
   const [simpleThreshold, setSimpleThreshold] = useState("100")
 
+  // machineId를 클로저가 아닌 명시적 인자로 받는다 — setDraftMachineId 직후처럼
+  // state가 아직 리렌더되지 않은 시점에도 "새" 스코프 기준으로 검증할 수 있도록.
+  function checkConditionAgainst(machineId: string | null, conditionStr: string): string | null {
+    if (!conditionStr.trim()) return null
+    // 비교 연산자가 있으면 한쪽만 파싱
+    const checkExpr = conditionStr.replace(/[><=!]+.*/g, "").trim() || conditionStr
+    const vars = listAvailableVariables(machineId, computedMetrics)
+    const result = validateFormula(checkExpr.trim() || "0", vars)
+    return result.valid ? null : (result.error ?? "유효하지 않은 조건")
+  }
+
   const handleConditionChange = (v: string) => {
     setCondition(v)
-    if (!v.trim()) { setCondError(null); return }
-    // 비교 연산자가 있으면 한쪽만 파싱
-    const checkExpr = v.replace(/[><=!]+.*/g, "").trim() || v
-    const result = validateFormula(checkExpr.trim() || "0", availableVariables)
-    setCondError(result.valid ? null : (result.error ?? "유효하지 않은 조건"))
+    setCondError(checkConditionAgainst(draftMachineId, v))
   }
 
   const handleSimpleFieldChange = (next: { v?: string; op?: ComparisonOp; t?: string }) => {
@@ -250,6 +257,7 @@ export function RuleEditorPanel() {
             if (!raw) return
             const { machineId } = JSON.parse(raw) as { machineId: string; label: string }
             setDraftMachineId(machineId)
+            setCondError(checkConditionAgainst(machineId, condition))
           }}
           className={`text-[10px] rounded px-2 py-1 border border-dashed ${
             draftDropActive ? "border-orange-500 bg-orange-950/30" : "border-gray-700 text-gray-500"
@@ -260,7 +268,10 @@ export function RuleEditorPanel() {
               대상: {machines.find((m) => m.id === draftMachineId)?.label ?? draftMachineId}
               <button
                 data-testid="rule-draft-target-clear"
-                onClick={() => setDraftMachineId(null)}
+                onClick={() => {
+                  setDraftMachineId(null)
+                  setCondError(checkConditionAgainst(null, condition))
+                }}
                 className="text-gray-600 hover:text-red-400"
               >
                 ✕
