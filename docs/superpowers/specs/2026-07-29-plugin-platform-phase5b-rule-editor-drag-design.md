@@ -117,7 +117,7 @@
 ## 에러 처리
 
 - 무관한 `dataTransfer` 타입의 드롭은 무시 (위 "드래그 구현 방식" 참조)
-- 간단 모드의 숫자 입력(`simpleThreshold`)은 `cooldownSec`/`soundFreq`와 달리 정수 단위가 아닌 센서 값(온도 98.6도 등)을 다루므로 `parseInt`가 아니라 `parseFloat` + 기본값 폴백을 쓴다 — 정수 파싱을 그대로 재사용하면 소수점 입력이 잘리는 버그가 생긴다
+- 간단 모드의 숫자 입력(`simpleThreshold`)은 `cooldownSec`/`soundFreq`처럼 JS 숫자로 파싱하지 않는다 — 조합된 조건 문자열(`temperature > 98.6`)에 그대로 문자열로 끼워 넣고, 실제 숫자 파싱은 (기존과 동일하게) `formulaEngine`의 토크나이저가 조건을 평가할 때 담당한다. 그래서 `parseInt`로 정수 자르는 버그가 애초에 생길 여지가 없다 — 잘못된 입력(예: 빈 값, 문자)은 조합된 문자열이 `validateFormula`를 통과하지 못해 기존 에러 UI로 자연스럽게 걸러진다
 - 조합된 조건 문자열은 (수정된) `validateFormula` 파이프라인을 그대로 통과시켜 기존 빨간 테두리 에러 UI 재사용
 - 여러 룰이 같은 머신에 스코프되는 것은 충돌이 아니다 — `useRuleEngine.ts`의 `relevantRules` 필터는 이미 다대다를 지원
 
