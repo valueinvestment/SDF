@@ -167,7 +167,9 @@ interface PluginProps {
 
 ## Phase 5 — WebSocket 스트림 모킹 데모 모드 + 플러그인 확장
 
-**상태 (5a만 완료):** 두 독립 서브시스템으로 분리해서 진행 중(Phase 3의 분리 전례와 동일한 이유). "WS 스트림 모킹 데모 모드"(5a)는 구현 완료 — 상세 설계는 `2026-07-28-plugin-platform-phase5a-demo-mode-design.md`, 구현 계획은 `2026-07-28-plugin-platform-phase5a-demo-mode-implementation.md` 참조. "룰 에디터 드래그 인터랙션 확장"(5b)은 아직 브레인스토밍 전.
+**상태 (5a 완료, 5b 설계 완료):** 두 독립 서브시스템으로 분리해서 진행 중(Phase 3의 분리 전례와 동일한 이유). "WS 스트림 모킹 데모 모드"(5a)는 구현 완료 — 상세 설계는 `2026-07-28-plugin-platform-phase5a-demo-mode-design.md`, 구현 계획은 `2026-07-28-plugin-platform-phase5a-demo-mode-implementation.md` 참조. "룰 에디터 드래그 인터랙션 확장"(5b)은 브레인스토밍·설계 완료, 구현 계획 작성 전 — 상세 설계는 `2026-07-29-plugin-platform-phase5b-rule-editor-drag-design.md` 참조.
+
+**5b 실제 설계:** 머신↔룰 양방향 드래그 스코핑(머신을 신규 룰 폼에 드래그 / 저장된 룰을 머신에 드래그, 둘 다 기존 `Rule.machineId` 필드를 사용 — 타입 변경 없음)과, 조건식 입력의 "간단 모드"(변수/연산자 드롭다운, 텍스트 모드와 병행)를 채택했다. 액션 순서 재정렬과 다중 머신 스코프는 제외. 설계 중 `validateFormula`가 커스텀 지표 이름을 항상 거부하던 기존 버그를 발견해 같이 고치기로 했다 — `packages/types`에 `BASE_RULE_VARIABLES` 상수, `packages/core-sdk`에 `listAvailableVariables` 함수를 추가해 흩어져 있던 "사용 가능한 변수" 정의를 하나로 모은다. 브레인스토밍 중 논의된 단위 변환과 가변 센서 변수(백엔드 확장) 아이디어는 스코프가 크게 달라 백로그로 분리했다(아래 백로그 섹션 참조).
 
 **5a 실제 구현:** 설계 단계에서 `apps/host-twin/hooks/useSimulator.ts`가 이미 WS 미연결 시 자동으로 가동되는 모킹 시뮬레이터(사인파+가우시안 노이즈, 고장 주기 포함)를 구현하고 있음을 발견해, 새 생성기를 만드는 대신 `useWebSocket`에 `demoMode` 파라미터를 추가해 실제 연결을 건너뛰게 하는 방식으로 기존 로직을 재사용했다. `PluginProps`에 최초의 쓰기 메서드(`setDemoMode`)를 추가해 새 `demoControllerPlugin` 패널이 런타임에 토글할 수 있게 했다.
 
@@ -277,6 +279,30 @@ interface PluginProps {
 
 ---
 
+## 백로그 — 센서 값 단위 변환 + 단위 인식 커스텀 지표
+
+**목표:** Phase 5b(룰 에디터 드래그 인터랙션) 브레인스토밍 중 논의됨. 현재 `vibration`/`temperature`/`current` 등 모든 센서 값은 단위 개념 없이 raw number로만 존재한다(`packages/types/src/index.ts`에 단위 필드 전무). 값의 단위를 바꿔 볼 수 있는 표시 기능과, 단위를 인식하는 커스텀 연산(예: `ComputedMetric`이 섭씨/화씨를 구분해 계산)이 실제 효용이 있어 보인다는 논의였다. 참고로 "커스텀 연산으로 새 변수 만들기" 자체는 `FormulaEditor.tsx`/`ComputedMetric`으로 이미 존재하지만 단위 인식은 없다.
+
+**제외 이유:** `SensorChart`/`RuleEditorPanel`/`FormulaEditor`/3D 오버레이 등 값이 표시되는 모든 지점에 단위 표시·변환 로직을 추가해야 하는 횡단 관심사로, Phase 5b의 드래그 인터랙션과 성격이 완전히 다르다. 이 프로젝트가 지금까지 지켜온 "번들된 서로 다른 서브시스템은 분리한다" 원칙(Phase 3a/3b, 5a/5b)에 따라 별도 브레인스토밍이 필요.
+
+**착수 조건:** 구체적 필요(예: 다른 단위계를 쓰는 실제 설비 연동)가 생기면 착수. 착수 시 데이터 모델(어느 필드가 어느 기준 단위인지)부터 정의해야 함.
+
+**의존관계:** Phase 5b 완료 후 언제든 독립적으로 착수 가능.
+
+---
+
+## 백로그 — MachineState 가변 센서 변수 지원 (열린 스키마)
+
+**목표:** Phase 5b(룰 에디터 드래그 인터랙션) 브레인스토밍 중 논의됨. 룰 조건/커스텀 지표의 변수 드롭다운이 백엔드가 새로 추가하는 센서 변수(예: `pressure`)를 자동으로 인식하길 원한다는 요구였다. 확인 결과 `apps/backend-sim/simulator/models.py`의 `MachineState`는 `vibration/temperature/current/status` 4개 필드만 갖는 닫힌 Pydantic `BaseModel`(여분 필드는 `extra` 설정이 없어 조용히 버려짐)이고, 프런트엔드 `packages/types/src/index.ts`의 미러 타입도 동일하게 고정이며, `useRuleEngine.ts`의 `vars` 구성도 세 필드를 명시적으로 하드코딩한다. Phase 1(Collector)/Phase 4.5(백엔드 동적 로딩)로 새 Collector/PipelineStage를 얹어도 새 변수 "이름"을 도입할 방법이 지금 아키텍처엔 없다.
+
+**제외 이유:** `MachineState`를 열린 스키마(예: `extra: Record<string, number>` 필드)로 바꾸고 Collector/PipelineStage 계약, WS 직렬화, `factoryStore`, `useRuleEngine`의 `vars` 구성까지 전부 건드려야 하는 백엔드 타입 계약 변경 — Phase 5b의 "드래그 인터랙션"이라는 주제와 무관하고, "센서 값 단위 변환" 백로그 항목과 마찬가지로 별도 브레인스토밍이 필요한 규모. Phase 5b의 변수 드롭다운은 이번 스코프에서 고정 3개 + `ComputedMetric`만 지원하고, UI에 "현재 지원 변수는 고정" 힌트를 명시한다.
+
+**착수 조건:** 실제로 새 센서 타입을 다루는 Collector가 필요해지면(예: 압력 센서 연동) 착수. 착수 시 열린 스키마 설계와 함께 룰/지표 UI의 변수 드롭다운을 정적 목록에서 실제 머신 상태 기반 동적 목록으로 바꿔야 함.
+
+**의존관계:** Phase 1, Phase 4.5, Phase 5b 완료 후 언제든 독립적으로 착수 가능.
+
+---
+
 ## 전체 의존관계 요약
 
 ```
@@ -293,4 +319,6 @@ Phase 0~7 전체 ──▶ Phase 8 ──▶ Phase 9
 백로그(subscribe clone 비용): Phase 2 완료 후 언제든, 실측 후 착수
 백로그(Inspector rule/metric 개수): Phase 3b 완료 후 언제든, 구체적 필요 발생 시 착수
 백로그(장시간 세션 녹화): Phase 7 완료 후 언제든, 구체적 필요 발생 시 착수
+백로그(단위 변환): Phase 5b 완료 후 언제든, 구체적 필요 발생 시 착수
+백로그(가변 센서 변수): Phase 1, 4.5, 5b 완료 후 언제든, 구체적 필요 발생 시 착수
 ```

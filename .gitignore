@@ -15,6 +15,7 @@ apps/backend-sim/plugins/uploaded/*.py
 uv.lock
 
 .claude/
+.superpowers/
 
 # 개인 진행 메모 (공개 배포 제외)
 docs/0619.md
