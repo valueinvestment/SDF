@@ -3,10 +3,10 @@ import { render, screen, fireEvent } from "@testing-library/react"
 import { useFactoryStore } from "@/store/factoryStore"
 import { RuleEditorPanel } from "@/components/RuleEditorPanel"
 
-function makeDataTransfer(payload: Record<string, string>) {
+function makeDataTransfer(payload: Record<string, string> = {}) {
   const store = { ...payload }
   return {
-    types: Object.keys(store),
+    get types() { return Object.keys(store) },
     setData: (type: string, value: string) => { store[type] = value },
     getData: (type: string) => store[type] ?? "",
   }
@@ -78,6 +78,19 @@ describe("RuleEditorPanel — A: drag machine onto new-rule draft zone", () => {
     fireEvent.click(screen.getByTestId("rule-draft-target-clear"))
 
     expect(screen.queryByText("대상: 프레스")).not.toBeInTheDocument()
+  })
+
+  it("uses the actually-dragged chip's own machineId, not a hardcoded one", () => {
+    render(<RuleEditorPanel />)
+    const chip = screen.getByText("🏭 CNC")
+    const dropzone = screen.getByTestId("rule-draft-dropzone")
+    const dataTransfer = makeDataTransfer()
+
+    fireEvent.dragStart(chip, { dataTransfer })
+    fireEvent.dragOver(dropzone, { dataTransfer })
+    fireEvent.drop(dropzone, { dataTransfer })
+
+    expect(screen.getByText("대상: CNC")).toBeInTheDocument()
   })
 
   it("ignores a drop with an unrelated dataTransfer type", () => {

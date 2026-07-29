@@ -10,11 +10,10 @@
 
 import { useState, type DragEvent } from "react"
 import { useFactoryStore } from "@/store/factoryStore"
-import { validateFormula, listAvailableVariables } from "@sdf/core-sdk"
+import { validateFormula } from "@sdf/core-sdk"
 import type { RuleAction, RuleActionType } from "@sdf/types"
 
 const MACHINE_DRAG_TYPE = "application/x-sdf-machine"
-const RULE_DRAG_TYPE = "application/x-sdf-rule"
 
 const ACTION_LABELS: Record<RuleActionType, string> = {
   overlay_color: "3D 색상 오버레이",
@@ -29,7 +28,6 @@ export function RuleEditorPanel() {
   const removeRule = useFactoryStore((s) => s.removeRule)
   const updateRule = useFactoryStore((s) => s.updateRule)
   const placedEntities = useFactoryStore((s) => s.placedEntities)
-  const computedMetrics = useFactoryStore((s) => s.computedMetrics)
   const machines = placedEntities.filter((e) => e.type !== "robot")
 
   const [name, setName] = useState("")
