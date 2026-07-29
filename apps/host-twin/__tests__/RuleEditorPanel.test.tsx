@@ -77,8 +77,7 @@ describe("RuleEditorPanel — A: drag machine onto new-rule draft zone", () => {
     fireEvent.drop(dropzone, { dataTransfer })
 
     fireEvent.change(screen.getByPlaceholderText("룰 이름 (e.g. 고온 경보)"), { target: { value: "고온 경보" } })
-    // 이 시점(Task 4)엔 조건 입력이 아직 Task 6 이전의 평범한 텍스트 input이라 직접 채워야 한다
-    fireEvent.change(screen.getByPlaceholderText("temperature > 100"), { target: { value: "temperature > 100" } })
+    // Task 6부터 조건 입력은 기본이 간단 모드이며 "temperature > 100"이 이미 조립되어 있으므로 별도 입력이 불필요하다
     fireEvent.click(screen.getByText("룰 추가"))
 
     expect(useFactoryStore.getState().rules[0].machineId).toBe("M1")
@@ -159,5 +158,75 @@ describe("RuleEditorPanel — C: drag a saved rule onto a machine chip", () => {
     fireEvent.drop(chip, { dataTransfer })
 
     expect(useFactoryStore.getState().rules[0].machineId).toBeNull()
+  })
+})
+
+describe("RuleEditorPanel — B: simple condition builder mode", () => {
+  it("defaults to simple mode with 'temperature > 100' pre-assembled", () => {
+    render(<RuleEditorPanel />)
+    expect(screen.getByDisplayValue("temperature")).toBeInTheDocument()
+    expect(screen.getByDisplayValue("100")).toBeInTheDocument()
+  })
+
+  it("updates the assembled condition string when the variable dropdown changes", () => {
+    render(<RuleEditorPanel />)
+    fireEvent.change(screen.getByTestId("rule-simple-var"), { target: { value: "vibration" } })
+    fireEvent.change(screen.getByPlaceholderText("룰 이름 (e.g. 고온 경보)"), { target: { value: "진동 경보" } })
+    fireEvent.click(screen.getByText("룰 추가"))
+    expect(useFactoryStore.getState().rules[0].condition).toBe("vibration > 100")
+  })
+
+  it("updates the assembled condition string when the operator dropdown changes", () => {
+    render(<RuleEditorPanel />)
+    fireEvent.change(screen.getByTestId("rule-simple-op"), { target: { value: "<" } })
+    fireEvent.change(screen.getByPlaceholderText("룰 이름 (e.g. 고온 경보)"), { target: { value: "저온 경보" } })
+    fireEvent.click(screen.getByText("룰 추가"))
+    expect(useFactoryStore.getState().rules[0].condition).toBe("temperature < 100")
+  })
+
+  it("updates the assembled condition string when the threshold input changes, preserving decimals", () => {
+    render(<RuleEditorPanel />)
+    fireEvent.change(screen.getByTestId("rule-simple-threshold"), { target: { value: "98.6" } })
+    fireEvent.change(screen.getByPlaceholderText("룰 이름 (e.g. 고온 경보)"), { target: { value: "체온 경보" } })
+    fireEvent.click(screen.getByText("룰 추가"))
+    expect(useFactoryStore.getState().rules[0].condition).toBe("temperature > 98.6")
+  })
+
+  it("includes computed metric names in the variable dropdown, scoped to the current draft target", () => {
+    useFactoryStore.setState({
+      computedMetrics: [
+        { id: "heat_index", name: "열지수", formula: "(vibration+temperature)/2", color: "#fff", machineId: null },
+      ],
+    })
+    render(<RuleEditorPanel />)
+    const select = screen.getByTestId("rule-simple-var") as HTMLSelectElement
+    const optionValues = Array.from(select.options).map((o) => o.value)
+    expect(optionValues).toContain("heat_index")
+  })
+
+  it("switches to text mode and shows the assembled string as an editable free-text input", () => {
+    render(<RuleEditorPanel />)
+    fireEvent.click(screen.getByText("텍스트"))
+    expect(screen.getByDisplayValue("temperature > 100")).toBeInTheDocument()
+  })
+
+  it("switching back to simple mode resets the simple fields to defaults", () => {
+    render(<RuleEditorPanel />)
+    fireEvent.click(screen.getByText("텍스트"))
+    fireEvent.change(screen.getByDisplayValue("temperature > 100"), { target: { value: "vibration > 5 && weird syntax" } })
+    fireEvent.click(screen.getByText("간단"))
+    expect(screen.getByDisplayValue("temperature")).toBeInTheDocument()
+    expect(screen.getByDisplayValue("100")).toBeInTheDocument()
+  })
+
+  it("does not show 'Unknown variable' error when a computed metric is selected in the dropdown", () => {
+    useFactoryStore.setState({
+      computedMetrics: [
+        { id: "heat_index", name: "열지수", formula: "(vibration+temperature)/2", color: "#fff", machineId: null },
+      ],
+    })
+    render(<RuleEditorPanel />)
+    fireEvent.change(screen.getByTestId("rule-simple-var"), { target: { value: "heat_index" } })
+    expect(screen.queryByText(/Unknown variable/)).not.toBeInTheDocument()
   })
 })

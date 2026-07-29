@@ -10,11 +10,18 @@
 
 import { useState, type DragEvent } from "react"
 import { useFactoryStore } from "@/store/factoryStore"
-import { validateFormula } from "@sdf/core-sdk"
+import { validateFormula, listAvailableVariables } from "@sdf/core-sdk"
 import type { RuleAction, RuleActionType } from "@sdf/types"
 
 const MACHINE_DRAG_TYPE = "application/x-sdf-machine"
 const RULE_DRAG_TYPE = "application/x-sdf-rule"
+
+const COMPARISON_OPS = [">", "<", ">=", "<=", "==", "!="] as const
+type ComparisonOp = (typeof COMPARISON_OPS)[number]
+
+function assembleSimpleCondition(v: string, op: string, threshold: string) {
+  return `${v} ${op} ${threshold}`
+}
 
 const ACTION_LABELS: Record<RuleActionType, string> = {
   overlay_color: "3D 색상 오버레이",
@@ -29,10 +36,11 @@ export function RuleEditorPanel() {
   const removeRule = useFactoryStore((s) => s.removeRule)
   const updateRule = useFactoryStore((s) => s.updateRule)
   const placedEntities = useFactoryStore((s) => s.placedEntities)
+  const computedMetrics = useFactoryStore((s) => s.computedMetrics)
   const machines = placedEntities.filter((e) => e.type !== "robot")
 
   const [name, setName] = useState("")
-  const [condition, setCondition] = useState("")
+  const [condition, setCondition] = useState(() => assembleSimpleCondition("temperature", ">", "100"))
   const [condError, setCondError] = useState<string | null>(null)
   const [selectedActions, setSelectedActions] = useState<RuleActionType[]>(["alert_popup"])
   const [overlayColor, setOverlayColor] = useState("#ef4444")
@@ -44,13 +52,40 @@ export function RuleEditorPanel() {
   const [draftDropActive, setDraftDropActive] = useState(false)
   const [dragOverMachineId, setDragOverMachineId] = useState<string | null>(null)
 
+  const availableVariables = listAvailableVariables(draftMachineId, computedMetrics)
+
+  const [conditionMode, setConditionMode] = useState<"simple" | "text">("simple")
+  const [simpleVar, setSimpleVar] = useState("temperature")
+  const [simpleOp, setSimpleOp] = useState<ComparisonOp>(">")
+  const [simpleThreshold, setSimpleThreshold] = useState("100")
+
   const handleConditionChange = (v: string) => {
     setCondition(v)
     if (!v.trim()) { setCondError(null); return }
     // 비교 연산자가 있으면 한쪽만 파싱
     const checkExpr = v.replace(/[><=!]+.*/g, "").trim() || v
-    const result = validateFormula(checkExpr.trim() || "0")
+    const result = validateFormula(checkExpr.trim() || "0", availableVariables)
     setCondError(result.valid ? null : (result.error ?? "유효하지 않은 조건"))
+  }
+
+  const handleSimpleFieldChange = (next: { v?: string; op?: ComparisonOp; t?: string }) => {
+    const v = next.v ?? simpleVar
+    const op = next.op ?? simpleOp
+    const t = next.t ?? simpleThreshold
+    if (next.v !== undefined) setSimpleVar(next.v)
+    if (next.op !== undefined) setSimpleOp(next.op)
+    if (next.t !== undefined) setSimpleThreshold(next.t)
+    handleConditionChange(assembleSimpleCondition(v, op, t))
+  }
+
+  const handleModeToggle = (mode: "simple" | "text") => {
+    setConditionMode(mode)
+    if (mode === "simple") {
+      setSimpleVar("temperature")
+      setSimpleOp(">")
+      setSimpleThreshold("100")
+      handleConditionChange(assembleSimpleCondition("temperature", ">", "100"))
+    }
   }
 
   const toggleAction = (type: RuleActionType) => {
@@ -81,9 +116,12 @@ export function RuleEditorPanel() {
       enabled: true,
     })
     setName("")
-    setCondition("")
-    setCondError(null)
     setDraftMachineId(null)
+    setConditionMode("simple")
+    setSimpleVar("temperature")
+    setSimpleOp(">")
+    setSimpleThreshold("100")
+    handleConditionChange(assembleSimpleCondition("temperature", ">", "100"))
   }
 
   return (
@@ -230,14 +268,60 @@ export function RuleEditorPanel() {
           )}
         </div>
         <div>
-          <input
-            value={condition}
-            onChange={(e) => handleConditionChange(e.target.value)}
-            placeholder="temperature > 100"
-            className={`w-full bg-gray-900 text-xs font-mono rounded px-2 py-1 border outline-none ${
-              condError ? "border-red-600 text-red-300" : "border-gray-700 text-gray-200 focus:border-orange-600"
-            }`}
-          />
+          <div className="flex gap-1 mb-1">
+            <button
+              onClick={() => handleModeToggle("simple")}
+              className={`text-[10px] px-1.5 py-0.5 rounded ${conditionMode === "simple" ? "bg-orange-900/60 text-orange-300" : "bg-gray-800 text-gray-500"}`}
+            >
+              간단
+            </button>
+            <button
+              onClick={() => handleModeToggle("text")}
+              className={`text-[10px] px-1.5 py-0.5 rounded ${conditionMode === "text" ? "bg-orange-900/60 text-orange-300" : "bg-gray-800 text-gray-500"}`}
+            >
+              텍스트
+            </button>
+          </div>
+
+          {conditionMode === "simple" ? (
+            <div className="flex gap-1">
+              <select
+                data-testid="rule-simple-var"
+                value={simpleVar}
+                onChange={(e) => handleSimpleFieldChange({ v: e.target.value })}
+                className="bg-gray-900 text-xs text-gray-200 rounded border border-gray-700 px-1 py-1"
+              >
+                {availableVariables.map((v) => (
+                  <option key={v} value={v}>{v}</option>
+                ))}
+              </select>
+              <select
+                data-testid="rule-simple-op"
+                value={simpleOp}
+                onChange={(e) => handleSimpleFieldChange({ op: e.target.value as ComparisonOp })}
+                className="bg-gray-900 text-xs text-gray-200 rounded border border-gray-700 px-1 py-1"
+              >
+                {COMPARISON_OPS.map((op) => (
+                  <option key={op} value={op}>{op}</option>
+                ))}
+              </select>
+              <input
+                data-testid="rule-simple-threshold"
+                value={simpleThreshold}
+                onChange={(e) => handleSimpleFieldChange({ t: e.target.value })}
+                className="flex-1 min-w-0 bg-gray-900 text-xs font-mono text-gray-200 rounded px-2 py-1 border border-gray-700 outline-none focus:border-orange-600"
+              />
+            </div>
+          ) : (
+            <input
+              value={condition}
+              onChange={(e) => handleConditionChange(e.target.value)}
+              placeholder="temperature > 100"
+              className={`w-full bg-gray-900 text-xs font-mono rounded px-2 py-1 border outline-none ${
+                condError ? "border-red-600 text-red-300" : "border-gray-700 text-gray-200 focus:border-orange-600"
+              }`}
+            />
+          )}
           {condError && <p className="text-[10px] text-red-400 mt-0.5">{condError}</p>}
         </div>
 
