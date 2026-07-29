@@ -248,6 +248,14 @@ export type RuleVariable =
   | "vibration" | "temperature" | "current"
   | string
 
+/**
+ * 룰 조건/커스텀 지표에서 항상 쓸 수 있는 기본 센서 변수.
+ * RuleEditorPanel/FormulaEditor/formulaEngine이 각자 하드코딩하지 않고
+ * 전부 이 상수를 통해 참조한다 — 나중에 백엔드가 가변 센서 변수를
+ * 지원하게 되면 이 배열(또는 이 배열을 만드는 소스)만 바꾸면 된다.
+ */
+export const BASE_RULE_VARIABLES: readonly string[] = ["vibration", "temperature", "current"]
+
 export type RuleActionType = "overlay_color" | "alert_popup" | "play_sound" | "webhook_post"
 
 export interface RuleAction {
