@@ -14,6 +14,7 @@ import { validateFormula } from "@sdf/core-sdk"
 import type { RuleAction, RuleActionType } from "@sdf/types"
 
 const MACHINE_DRAG_TYPE = "application/x-sdf-machine"
+const RULE_DRAG_TYPE = "application/x-sdf-rule"
 
 const ACTION_LABELS: Record<RuleActionType, string> = {
   overlay_color: "3D 색상 오버레이",
@@ -41,6 +42,7 @@ export function RuleEditorPanel() {
   const [cooldownSec, setCooldownSec] = useState("10")
   const [draftMachineId, setDraftMachineId] = useState<string | null>(null)
   const [draftDropActive, setDraftDropActive] = useState(false)
+  const [dragOverMachineId, setDragOverMachineId] = useState<string | null>(null)
 
   const handleConditionChange = (v: string) => {
     setCondition(v)
@@ -99,7 +101,26 @@ export function RuleEditorPanel() {
               e.dataTransfer.setData(MACHINE_DRAG_TYPE, JSON.stringify({ machineId: m.id, label: m.label }))
               e.dataTransfer.effectAllowed = "copy"
             }}
-            className="text-[10px] px-1.5 py-0.5 rounded bg-gray-800 text-gray-300 border border-gray-700 cursor-grab active:cursor-grabbing"
+            onDragOver={(e: DragEvent<HTMLDivElement>) => {
+              if (!e.dataTransfer.types.includes(RULE_DRAG_TYPE)) return
+              e.preventDefault()
+              setDragOverMachineId(m.id)
+            }}
+            onDragLeave={() => setDragOverMachineId(null)}
+            onDrop={(e: DragEvent<HTMLDivElement>) => {
+              if (!e.dataTransfer.types.includes(RULE_DRAG_TYPE)) return
+              e.preventDefault()
+              setDragOverMachineId(null)
+              const raw = e.dataTransfer.getData(RULE_DRAG_TYPE)
+              if (!raw) return
+              const { ruleId } = JSON.parse(raw) as { ruleId: string }
+              updateRule(ruleId, { machineId: m.id })
+            }}
+            className={`text-[10px] px-1.5 py-0.5 rounded border cursor-grab active:cursor-grabbing ${
+              dragOverMachineId === m.id
+                ? "border-orange-500 bg-orange-950/30 text-orange-300"
+                : "bg-gray-800 text-gray-300 border-gray-700"
+            }`}
           >
             🏭 {m.label}
           </div>
@@ -110,9 +131,17 @@ export function RuleEditorPanel() {
       {rules.length > 0 && (
         <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
           {rules.map((rule) => (
-            <div key={rule.id} className={`rounded-lg border px-2 py-1.5 text-xs ${
-              rule.enabled ? "border-orange-800/60 bg-orange-950/20" : "border-gray-700 bg-gray-900/40"
-            }`}>
+            <div
+              key={rule.id}
+              draggable
+              onDragStart={(e: DragEvent<HTMLDivElement>) => {
+                e.dataTransfer.setData(RULE_DRAG_TYPE, JSON.stringify({ ruleId: rule.id }))
+                e.dataTransfer.effectAllowed = "copy"
+              }}
+              className={`rounded-lg border px-2 py-1.5 text-xs cursor-grab active:cursor-grabbing ${
+                rule.enabled ? "border-orange-800/60 bg-orange-950/20" : "border-gray-700 bg-gray-900/40"
+              }`}
+            >
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => updateRule(rule.id, { enabled: !rule.enabled })}
@@ -136,6 +165,21 @@ export function RuleEditorPanel() {
                   </span>
                 ))}
               </div>
+              {rule.machineId && (
+                <div className="pl-5 mt-1">
+                  <span className="inline-flex items-center gap-1 text-[9px] px-1 py-0.5 rounded bg-gray-800 text-gray-400">
+                    <span aria-hidden="true">🏭</span>{" "}
+                    {machines.find((m) => m.id === rule.machineId)?.label ?? rule.machineId}
+                    <button
+                      data-testid={`rule-scope-clear-${rule.id}`}
+                      onClick={() => updateRule(rule.id, { machineId: null })}
+                      className="text-gray-600 hover:text-red-400"
+                    >
+                      ✕
+                    </button>
+                  </span>
+                </div>
+              )}
             </div>
           ))}
         </div>

@@ -24,6 +24,24 @@ beforeEach(() => {
   })
 })
 
+function seedRule(patch: Partial<{ machineId: string | null }> = {}) {
+  useFactoryStore.setState((s) => ({
+    rules: [
+      ...s.rules,
+      {
+        id: "rule-1",
+        name: "고온 경보",
+        condition: "temperature > 100",
+        machineId: patch.machineId ?? null,
+        actions: [],
+        lastTriggeredAt: 0,
+        cooldownMs: 10000,
+        enabled: true,
+      },
+    ],
+  }))
+}
+
 describe("RuleEditorPanel — machine chip list", () => {
   it("lists only non-robot placed entities as machine chips", () => {
     render(<RuleEditorPanel />)
@@ -102,5 +120,44 @@ describe("RuleEditorPanel — A: drag machine onto new-rule draft zone", () => {
     fireEvent.drop(dropzone, { dataTransfer })
 
     expect(screen.queryByText(/대상:/)).not.toBeInTheDocument()
+  })
+})
+
+describe("RuleEditorPanel — C: drag a saved rule onto a machine chip", () => {
+  it("calls updateRule with the dropped machineId", () => {
+    seedRule()
+    render(<RuleEditorPanel />)
+    const ruleCard = screen.getByText("고온 경보")
+    const chip = screen.getByText("🏭 CNC")
+    const dataTransfer = makeDataTransfer({ "application/x-sdf-rule": JSON.stringify({ ruleId: "rule-1" }) })
+
+    fireEvent.dragStart(ruleCard, { dataTransfer })
+    fireEvent.dragOver(chip, { dataTransfer })
+    fireEvent.drop(chip, { dataTransfer })
+
+    expect(useFactoryStore.getState().rules[0].machineId).toBe("M2")
+  })
+
+  it("shows a scope badge on a rule card once scoped, and clears it back to null via the badge's clear button", () => {
+    seedRule({ machineId: "M1" })
+    render(<RuleEditorPanel />)
+
+    expect(screen.getByText("🏭 프레스")).toBeInTheDocument()
+
+    fireEvent.click(screen.getByTestId("rule-scope-clear-rule-1"))
+
+    expect(useFactoryStore.getState().rules[0].machineId).toBeNull()
+  })
+
+  it("ignores a drop onto a machine chip with an unrelated dataTransfer type", () => {
+    seedRule()
+    render(<RuleEditorPanel />)
+    const chip = screen.getByText("🏭 CNC")
+    const dataTransfer = makeDataTransfer({ "application/x-sdf-machine": JSON.stringify({ machineId: "M2", label: "CNC" }) })
+
+    fireEvent.dragOver(chip, { dataTransfer })
+    fireEvent.drop(chip, { dataTransfer })
+
+    expect(useFactoryStore.getState().rules[0].machineId).toBeNull()
   })
 })
