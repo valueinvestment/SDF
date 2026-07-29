@@ -32,8 +32,9 @@ packages/
 - **3D 노코드 저작** — 장비 추가·정밀 스케일, 외부 GLB/GLTF 모델 업로드(드래그앤드롭/URL), `TransformControls` 기즈모 + 격자 스냅
 - **가변 그리드 레이아웃** — 위젯 드래그 이동·리사이즈(react-grid-layout), 편집 모드 크기 시각화, URL/localStorage 영속화
 - **데이터 변환 & 시뮬레이터** — 안전 수식 파서 기반 커스텀 지표, 가우시안 노이즈 모킹, 배속 컨트롤
-- **가상 MES & 동적 룰 엔진** — ISA-95 WorkOrder, 조건부 룰·헤드리스 액션(오버레이/사운드/Webhook), 폐루프 공정 우회
+- **가상 MES & 동적 룰 엔진** — ISA-95 WorkOrder, 조건부 룰·헤드리스 액션(오버레이/사운드/Webhook), 폐루프 공정 우회, 드래그로 룰↔머신 스코핑
 - **결함 격리 & 공유** — 위젯 단위 ErrorBoundary, lz-string URL 인코딩 + 길이 초과 방어
+- **확장 가능한 플러그인 플랫폼** — 프런트엔드/백엔드 양쪽 화이트리스트 계약, 재빌드 없는 런타임 동적 로딩(신뢰된 개발자 전용), 개발용 Plugin Inspector
 
 ## 빠른 시작
 
@@ -58,6 +59,13 @@ pnpm dev        # turbo: apps/host-twin + apps/backend-sim 동시 구동
 ## 플러그인 개발 & 배포
 
 `@sdf/types` 인터페이스만 준수하면 호스트 앱 코드를 건드리지 않고 위젯·플러그인을 확장·배포할 수 있다.
+
+```bash
+pnpm create-plugin my-plugin   # 프런트엔드 플러그인 스캐폴드 생성 + 자동 등록
+```
+
+재빌드 없이 테스트하려면 개발 모드 전용 Plugin Inspector 패널에 `.js`를 드래그하거나(프런트엔드), `apps/backend-sim/plugins/uploaded/`에 `.py`를 넣으면(백엔드, 5초 내 인식) 된다 — 둘 다 신뢰된 개발자·개발 환경 전용 기능이다. 등록 파일 위치, 화이트리스트 API 계약(`PluginContext`/`PluginProps`), 기여 절차는 [`CONTRIBUTING.md`](./CONTRIBUTING.md#-플러그인-기여-시-유의사항), 실행 예시는 [`HOW_TO_RUN.md`](./HOW_TO_RUN.md#plugins)에 정리되어 있다. 예시 플러그인은 [`examples/plugins/`](./examples/plugins/)에 있다.
+
 플러그인 표준 규격과 NPM 배포 절차는 [`docs/PUBLISHING.md`](./docs/PUBLISHING.md),
 공개 배포 시 제외 대상은 [`docs/DISTRIBUTION.md`](./docs/DISTRIBUTION.md)를 참조한다.
 

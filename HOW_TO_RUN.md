@@ -82,6 +82,34 @@ pnpm --filter @sdf/host-twin run test
 
 ---
 
+## Plugins
+
+### Scaffold a new frontend plugin
+
+```bash
+pnpm create-plugin temperature-alert
+```
+
+Generates `apps/host-twin/plugins/temperatureAlertPlugin.tsx` (+ a smoke test in `plugins/__tests__/`) and auto-registers it in `apps/host-twin/lib/plugins.ts`. Backend plugins (`Collector`/`PipelineStage`) have no scaffold script yet — for a `Collector` implementation to model against, read `apps/backend-sim/plugins/simulator_collector.py` (the production one, statically registered in `installed.py`); for a `PipelineStage` you can drop straight into the dynamic-loading flow below without touching `installed.py`, copy `examples/plugins/example_pipeline_stage.py` (written specifically as an `uploaded/`-folder demo).
+
+### Test frontend dynamic loading (dev-only)
+
+1. Run the frontend in dev mode (`NODE_ENV` is not `production`, so the Plugin Inspector panel is visible).
+2. Open the Plugin Inspector panel and drag a `.js` file onto the upload zone — try `examples/plugins/machine-counter-plugin.js`.
+3. The file loads via native browser `import()` with zero rebuild. It must `export default` a plain `{id, name, version, activate}` object and cannot use bare-specifier imports (no bundler involved) — see `CONTRIBUTING.md` for the full contract.
+
+### Test backend dynamic loading
+
+1. With the backend running, drop a `.py` file implementing the `Collector` or `PipelineStage` protocol (`apps/backend-sim/plugins/contracts.py`) into `apps/backend-sim/plugins/uploaded/`.
+2. A background poller picks it up within 5 seconds and registers it — check the Plugin Inspector panel or server logs for confirmation.
+3. Files in this directory are gitignored (`apps/backend-sim/plugins/uploaded/*.py`) — don't commit test uploads there.
+
+### Demo mode (no backend required)
+
+Toggle via the "데모 컨트롤러" panel's start/stop button, or it auto-activates whenever the WebSocket isn't `"connected"` (frontend-only mock data generator, no backend needed).
+
+---
+
 ## Troubleshooting: stale uvicorn worker (Windows)
 
 Symptom: WebSocket connects but no data, or code changes not reflected.
