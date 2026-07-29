@@ -229,4 +229,13 @@ describe("RuleEditorPanel — B: simple condition builder mode", () => {
     fireEvent.change(screen.getByTestId("rule-simple-var"), { target: { value: "heat_index" } })
     expect(screen.queryByText(/Unknown variable/)).not.toBeInTheDocument()
   })
+
+  it("clicking the already-active 간단 tab does not reset an in-progress selection", () => {
+    render(<RuleEditorPanel />)
+    fireEvent.change(screen.getByTestId("rule-simple-var"), { target: { value: "vibration" } })
+    fireEvent.change(screen.getByTestId("rule-simple-op"), { target: { value: "<" } })
+    fireEvent.click(screen.getByText("간단"))
+    expect(screen.getByDisplayValue("vibration")).toBeInTheDocument()
+    expect(screen.getByDisplayValue("<")).toBeInTheDocument()
+  })
 })

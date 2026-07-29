@@ -78,14 +78,20 @@ export function RuleEditorPanel() {
     handleConditionChange(assembleSimpleCondition(v, op, t))
   }
 
+  // 의도적으로 텍스트 모드의 값을 파싱해서 되돌리지 않는다 — 항상 알려진 기본값에서 시작한다.
+  // (왕복 파싱은 복잡도 대비 이득이 적다는 설계 결정)
+  const resetSimpleFields = () => {
+    setSimpleVar("temperature")
+    setSimpleOp(">")
+    setSimpleThreshold("100")
+    handleConditionChange(assembleSimpleCondition("temperature", ">", "100"))
+  }
+
   const handleModeToggle = (mode: "simple" | "text") => {
-    setConditionMode(mode)
-    if (mode === "simple") {
-      setSimpleVar("temperature")
-      setSimpleOp(">")
-      setSimpleThreshold("100")
-      handleConditionChange(assembleSimpleCondition("temperature", ">", "100"))
+    if (mode === "simple" && conditionMode !== "simple") {
+      resetSimpleFields()
     }
+    setConditionMode(mode)
   }
 
   const toggleAction = (type: RuleActionType) => {
@@ -118,10 +124,7 @@ export function RuleEditorPanel() {
     setName("")
     setDraftMachineId(null)
     setConditionMode("simple")
-    setSimpleVar("temperature")
-    setSimpleOp(">")
-    setSimpleThreshold("100")
-    handleConditionChange(assembleSimpleCondition("temperature", ">", "100"))
+    resetSimpleFields()
   }
 
   return (
