@@ -77,7 +77,18 @@ const DEFAULT_LAYOUT: LayoutConfig = {
     { id: "detail",    label: "상세 패널",       x: 1, y: 4, w: 1, h: 3, visible: true },
     { id: "rules",     label: "룰 엔진",         x: 2, y: 4, w: 1, h: 3, visible: true },
     { id: "mes",       label: "MES 모니터",      x: 0, y: 7, w: 3, h: 2, visible: true },
-    { id: "inspector", label: "플러그인 인스펙터", x: 0, y: 9, w: 3, h: 3, visible: process.env.NODE_ENV !== "production" },
+    {
+      id: "inspector",
+      label: "플러그인 인스펙터",
+      x: 0,
+      y: 9,
+      w: 3,
+      h: 3,
+      // NODE_ENV는 `next build`가 항상 "production"으로 고정하므로 Vercel 배포 자체로는
+      // 뒤집을 수 없다 — NEXT_PUBLIC_ENABLE_DEV_TOOLS는 배포된 환경에서도 이 패널(과
+      // 런타임 플러그인 업로드 UI)을 의도적으로 켜고 싶을 때 쓰는 별도 스위치.
+      visible: process.env.NODE_ENV !== "production" || process.env.NEXT_PUBLIC_ENABLE_DEV_TOOLS === "true",
+    },
   ],
 }
 

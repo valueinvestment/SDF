@@ -3,6 +3,7 @@ import { sensorChartPlugin } from "@/plugins/sensorChartPlugin"
 import { alertLogPlugin } from "@/plugins/alertLogPlugin"
 import { sessionRecorderPlugin } from "@/plugins/sessionRecorderPlugin"
 import { demoControllerPlugin } from "@/plugins/demoControllerPlugin"
+import { helloPanelPlugin } from "@/plugins/helloPanelPlugin"
 
 /**
  * Statically installed plugins. Add imported plugin objects to this array
@@ -10,9 +11,7 @@ import { demoControllerPlugin } from "@/plugins/demoControllerPlugin"
  * the same PluginRegistry.register() entry point at runtime for uploaded
  * .js files, on top of this static list.
  */
-export const installedPlugins: SDFPlugin[] = [
-  sensorChartPlugin,
+export const installedPlugins: SDFPlugin[] = [sensorChartPlugin,
   alertLogPlugin,
   sessionRecorderPlugin,
-  demoControllerPlugin,
-]
+  demoControllerPlugin, helloPanelPlugin]

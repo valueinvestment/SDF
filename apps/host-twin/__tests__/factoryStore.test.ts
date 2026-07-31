@@ -267,6 +267,23 @@ describe("inspector built-in panel", () => {
     expect(panel?.visible).toBe(true)
   })
 
+  it("is visible in production when NEXT_PUBLIC_ENABLE_DEV_TOOLS is 'true'", async () => {
+    vi.stubEnv("NODE_ENV", "production")
+    vi.stubEnv("NEXT_PUBLIC_ENABLE_DEV_TOOLS", "true")
+    vi.resetModules()
+    const { useFactoryStore: freshStore } = await import("@/store/factoryStore")
+    const panel = freshStore.getState().layoutConfig.panels.find((p) => p.id === "inspector")
+    expect(panel?.visible).toBe(true)
+  })
+
+  it("stays hidden in production when NEXT_PUBLIC_ENABLE_DEV_TOOLS is unset", async () => {
+    vi.stubEnv("NODE_ENV", "production")
+    vi.resetModules()
+    const { useFactoryStore: freshStore } = await import("@/store/factoryStore")
+    const panel = freshStore.getState().layoutConfig.panels.find((p) => p.id === "inspector")
+    expect(panel?.visible).toBe(false)
+  })
+
   it("rejects plugin attempts to register the 'inspector' id", () => {
     expect(() => useFactoryStore.getState().registerPluginPanel("inspector", "충돌")).toThrow(
       PluginPanelConflictError,
