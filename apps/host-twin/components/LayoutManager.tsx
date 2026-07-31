@@ -149,7 +149,7 @@ export function LayoutGrid({ editingLayout, panels }: LayoutGridProps) {
               key={panel.id}
               className={`relative ${
                 editingLayout
-                  ? "rounded-lg border-2 border-dashed border-blue-500/60 bg-blue-500/[0.04] shadow-[0_0_0_1px_rgba(59,130,246,0.15)]"
+                  ? "rgl-editing rounded-lg border-2 border-dashed border-blue-500/60 bg-blue-500/[0.04] shadow-[0_0_0_1px_rgba(59,130,246,0.15)]"
                   : ""
               }`}
             >

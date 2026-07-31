@@ -25,3 +25,48 @@ body {
     text-wrap: balance;
   }
 }
+
+/* react-grid-layout 레이아웃 편집 모드 오버라이드.
+   라이브러리 기본 CSS(react-grid-layout/css/styles.css)는 드래그 중 놓일 위치를
+   빨간색(red)으로 표시하는데, 이 앱에서는 "배치 불가"처럼 보여 혼동을 준다.
+   편집 모드 전반에 이미 쓰이는 blue 액센트(border-blue-500 등, LayoutManager.tsx)와
+   통일해 "여기로 옮겨진다"는 걸 자연스럽게 인지하도록 바꾼다. 선택자에 .layout을
+   더해 라이브러리 규칙(.react-grid-item.react-grid-placeholder, 클래스 2개)보다
+   명시도를 높여(클래스 3개) CSS 임포트 순서와 무관하게 항상 이 규칙이 이긴다. */
+.layout .react-grid-item.react-grid-placeholder {
+  background: rgba(59, 130, 246, 0.35);
+  border: 2px dashed rgba(96, 165, 250, 0.9);
+  border-radius: 0.5rem;
+  opacity: 1;
+}
+
+/* 리사이즈 핸들(우측 하단, se): 기본은 20x20 투명 박스 안에 5px 짜리 검은 코너
+   마크뿐이고 hover 전엔 opacity:0이라, 이 앱의 어두운 패널 배경 위에서는 편집
+   모드에서도 "여기를 끌면 늘어난다"는 게 거의 안 보인다. 편집 모드에서는 hover
+   없이도 항상 보이는 파란 칩으로 바꿔 즉시 눈에 띄게 한다. */
+.layout .rgl-editing > .react-resizable-handle-se {
+  opacity: 1;
+  width: 22px;
+  height: 22px;
+}
+
+.layout .rgl-editing > .react-resizable-handle-se::before {
+  content: "";
+  position: absolute;
+  right: 2px;
+  bottom: 2px;
+  width: 16px;
+  height: 16px;
+  background: rgba(30, 58, 138, 0.85);
+  border: 1px solid rgba(96, 165, 250, 0.6);
+  border-radius: 4px 0 8px 0;
+}
+
+.layout .rgl-editing > .react-resizable-handle-se::after {
+  right: 6px;
+  bottom: 6px;
+  width: 7px;
+  height: 7px;
+  border-right: 2px solid rgb(147, 197, 253);
+  border-bottom: 2px solid rgb(147, 197, 253);
+}
